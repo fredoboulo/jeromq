@@ -109,7 +109,12 @@
         <extensions>true</extensions>
         <configuration>
           <instructions>
-            <Export-Package>*</Export-Package>
+            <_noee>true</_noee>
+            <Bundle-SymbolicName>${project.name}</Bundle-SymbolicName>
+            <Bundle-Version>${project.version}</Bundle-Version>
+            <Import-Package>com.neilalexander.jnacl.*;version=!</Import-Package>
+            <Private-Package>!*</Private-Package>
+            <Export-Package>zmq.*;-noimport:=true,org.zeromq.*;-noimport:=true</Export-Package>
           </instructions>
         </configuration>
         <executions>
