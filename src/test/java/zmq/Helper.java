@@ -350,4 +350,71 @@ public class Helper
     {
         return rewind(string.length());
     }
+
+    public static String toString(int... zmq)
+    {
+        if (zmq.length == 0) {
+            return "[]";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+        for (int s : zmq) {
+            String string = toString(s);
+            builder.append(string);
+            builder.append(", ");
+        }
+        builder.append("]");
+        return builder.toString();
+    }
+
+    public static String toString(int zmq)
+    {
+        String string = Integer.toString(zmq);
+        switch (zmq) {
+        case ZMQ.ZMQ_DEALER:
+            string = "DEALER";
+            break;
+        case ZMQ.ZMQ_ROUTER:
+            string = "ROUTER";
+            break;
+        case ZMQ.ZMQ_REQ:
+            string = "REQ";
+            break;
+        case ZMQ.ZMQ_REP:
+            string = "REP";
+            break;
+        case ZMQ.ZMQ_PAIR:
+            string = "PAIR";
+            break;
+        case ZMQ.ZMQ_PUB:
+            string = "PUB";
+            break;
+        case ZMQ.ZMQ_SUB:
+            string = "SUB";
+            break;
+        case ZMQ.ZMQ_PUSH:
+            string = "PUSH";
+            break;
+        case ZMQ.ZMQ_PULL:
+            string = "PULL";
+            break;
+        case ZMQ.ZMQ_DECODER:
+            string = "DECODER";
+            break;
+        case ZMQ.ZMQ_ENCODER:
+            string = "ENCODER";
+            break;
+        case ZMQ.ZMQ_XPUB:
+            string = "XPUB";
+            break;
+        case ZMQ.ZMQ_XSUB:
+            string = "XSUB";
+            break;
+
+        default:
+            break;
+        }
+        return string;
+    }
 }

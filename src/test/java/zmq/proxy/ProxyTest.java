@@ -328,7 +328,7 @@ public class ProxyTest
         ZMQ.close(control);
 
         executor.shutdown();
-        executor.awaitTermination(40, TimeUnit.SECONDS);
+        executor.awaitTermination(10, TimeUnit.SECONDS);
 
         ZMQ.term(ctx);
 
