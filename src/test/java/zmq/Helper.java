@@ -299,4 +299,122 @@ public class Helper
         in.read(buf, 0, reslen);
         System.out.println("recv " + reslen + " " + new String(buf, 0, reslen, ZMQ.CHARSET));
     }
+
+    /**
+     * Repeat count times the string in input.
+     * @param count the number of repeats
+     * @param string the string to repeat
+     * @return the repeated string
+     */
+    public static String repeat(int count, String string)
+    {
+        return count < 1 ? "" : String.format(String.format("%%%ds", count), " ").replace(" ", string);
+    }
+
+    /**
+     * Provides a string able to erase count characters on the console.
+     * @param count the number of characters to erase.
+     * @return the erasing string.
+     */
+    public static String erase(int count)
+    {
+        return repeat(count, "\b \b");
+    }
+
+    /**
+     * Provides a string able to rewind to count characters on the console.
+     * @param count the number of characters to rewind.
+     * @return the rewinding string.
+     */
+    public static String rewind(int count)
+    {
+        return repeat(count, "\b");
+    }
+
+    /**
+     * Provides a string able to erase a string on the console.
+     * @param string the string to erase.
+     * @return the erasing string.
+     */
+    public static String erase(String string)
+    {
+        return erase(string.length());
+    }
+
+    /**
+     * Provides a string able to rewind to a string on the console.
+     * @param count the number of characters to rewind.
+     * @return the rewinding string.
+     */
+    public static String rewind(String string)
+    {
+        return rewind(string.length());
+    }
+
+    public static String toString(int... zmq)
+    {
+        if (zmq.length == 0) {
+            return "[]";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+        for (int s : zmq) {
+            String string = toString(s);
+            builder.append(string);
+            builder.append(", ");
+        }
+        builder.append("]");
+        return builder.toString();
+    }
+
+    public static String toString(int zmq)
+    {
+        String string = Integer.toString(zmq);
+        switch (zmq) {
+        case ZMQ.ZMQ_DEALER:
+            string = "DEALER";
+            break;
+        case ZMQ.ZMQ_ROUTER:
+            string = "ROUTER";
+            break;
+        case ZMQ.ZMQ_REQ:
+            string = "REQ";
+            break;
+        case ZMQ.ZMQ_REP:
+            string = "REP";
+            break;
+        case ZMQ.ZMQ_PAIR:
+            string = "PAIR";
+            break;
+        case ZMQ.ZMQ_PUB:
+            string = "PUB";
+            break;
+        case ZMQ.ZMQ_SUB:
+            string = "SUB";
+            break;
+        case ZMQ.ZMQ_PUSH:
+            string = "PUSH";
+            break;
+        case ZMQ.ZMQ_PULL:
+            string = "PULL";
+            break;
+        case ZMQ.ZMQ_DECODER:
+            string = "DECODER";
+            break;
+        case ZMQ.ZMQ_ENCODER:
+            string = "ENCODER";
+            break;
+        case ZMQ.ZMQ_XPUB:
+            string = "XPUB";
+            break;
+        case ZMQ.ZMQ_XSUB:
+            string = "XSUB";
+            break;
+
+        default:
+            break;
+        }
+        return string;
+    }
 }
