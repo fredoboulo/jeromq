@@ -60,7 +60,7 @@ public class Pipe extends ZObject
     //  term_req_sent1: 'terminate' was explicitly called by the user,
     //  term_req_sent2: user called 'terminate' and then we've got
     //      term command from the peer as well.
-    enum State
+    public enum State
     {
         ACTIVE,
         DELIMITER_RECEIVED,
@@ -353,62 +353,25 @@ public class Pipe extends ZObject
     @Override
     protected void processPipeTerm()
     {
-        assert (state == State.ACTIVE || state == State.DELIMITER_RECEIVED || state == State.TERM_REQ_SENT_1);
-
-        //  This is the simple case of peer-induced termination. If there are no
-        //  more pending messages to read, or if the pipe was configured to drop
-        //  pending messages, we can move directly to the term_ack_sent state.
-        //  Otherwise we'll hang up in waiting_for_delimiter state till all
-        //  pending messages are read.
-        if (state == State.ACTIVE) {
-            if (delay) {
-                state = State.WAITING_FOR_DELIMITER;
-            }
-            else {
-                state = State.TERM_ACK_SENT;
-                outpipe = null;
-                sendPipeTermAck(peer);
-            }
-        }
-        else
-        //  Delimiter happened to arrive before the term command. Now we have the
-        //  term command as well, so we can move straight to term_ack_sent state.
-        if (state == State.DELIMITER_RECEIVED) {
-            state = State.TERM_ACK_SENT;
-            outpipe = null;
-            sendPipeTermAck(peer);
-        }
-        else
-        //  This is the case where both ends of the pipe are closed in parallel.
-        //  We simply reply to the request by ack and continue waiting for our
-        //  own ack.
-        if (state == State.TERM_REQ_SENT_1) {
-            state = State.TERM_REQ_SENT_2;
-            outpipe = null;
-            sendPipeTermAck(peer);
-        }
+        runEvent(Event.PipeTerm, null);
     }
 
     @Override
-    protected void processPipeTermAck()
+    protected void processPipeTermAck(State peerState)
     {
+//        assert (state == State.TERM_ACK_SENT || state == State.TERM_REQ_SENT_1
+//                || state == State.TERM_REQ_SENT_2) : state;
+//        assert (peerState == State.TERM_ACK_SENT || peerState == State.TERM_REQ_SENT_1
+//                || peerState == State.TERM_REQ_SENT_2) : peerState;
+
         //  Notify the user that all the references to the pipe should be dropped.
         assert (sink != null);
         sink.pipeTerminated(this);
+        runEvent(Event.PipeTermAck, peerState);
+    }
 
-        //  In term_ack_sent and term_req_sent2 states there's nothing to do.
-        //  Simply deallocate the pipe. In term_req_sent1 state we have to ack
-        //  the peer before deallocating this side of the pipe.
-        //  All the other states are invalid.
-        if (state == State.TERM_REQ_SENT_1) {
-            outpipe = null;
-            sendPipeTermAck(peer);
-        }
-        else {
-            assert (state == State.TERM_ACK_SENT || state == State.TERM_REQ_SENT_2);
-        }
-
-        // TODO V4 not in zeromq, but no harm. Remove it?
+    private void closeInbound()
+    {
         // If the inbound pipe has already been deallocated, then we're done.
         if (inpipe == null) {
             return;
@@ -443,44 +406,11 @@ public class Pipe extends ZObject
         //  Overload the value specified at pipe creation.
         this.delay = delay;
 
-        //  If terminate was already called, we can ignore the duplicit invocation.
-        if (state == State.TERM_REQ_SENT_1 || state == State.TERM_REQ_SENT_2) {
-            return;
-        }
-        //  If the pipe is in the final phase of async termination, it's going to
-        //  closed anyway. No need to do anything special here.
-        else if (state == State.TERM_ACK_SENT) {
-            return;
-        }
-        //  The simple sync termination case. Ask the peer to terminate and wait
-        //  for the ack.
-        else if (state == State.ACTIVE) {
-            sendPipeTerm(peer);
-            state = State.TERM_REQ_SENT_1;
-        }
-        //  There are still pending messages available, but the user calls
-        //  'terminate'. We can act as if all the pending messages were read.
-        else if (state == State.WAITING_FOR_DELIMITER && !this.delay) {
-            outpipe = null;
-            sendPipeTermAck(peer);
-            state = State.TERM_ACK_SENT;
-        }
-        //  If there are pending messages still available, do nothing.
-        else if (state == State.WAITING_FOR_DELIMITER) {
-            // do nothing
-        }
-        //  We've already got delimiter, but not term command yet. We can ignore
-        //  the delimiter and ack synchronously terminate as if we were in
-        //  active state.
-        else if (state == State.DELIMITER_RECEIVED) {
-            sendPipeTerm(peer);
-            state = State.TERM_REQ_SENT_1;
-        }
-        //  There are no other states.
-        else {
-            assert (false);
-        }
+        runEvent(Event.Terminate, null);
+    }
 
+    private void writeDelimiter()
+    {
         //  Stop outbound flow of messages.
         outActive = false;
 
@@ -495,6 +425,178 @@ public class Pipe extends ZObject
             msg.initDelimiter();
             outpipe.write(msg, false);
             flush();
+        }
+    }
+
+    private enum Event {
+        Terminate, Delimiter, PipeTerm, PipeTermAck
+    }
+
+    private void runEvent(Event event, State peerState)
+    {
+        switch (state) {
+        case ACTIVE:
+            switch (event) {
+            case Terminate:
+                // The simple sync termination case. Ask the peer to terminate and wait
+                // for the ack.
+                state = State.TERM_REQ_SENT_1;
+                sendPipeTerm(peer);
+                writeDelimiter();
+                break;
+            case PipeTerm:
+                // This is the simple case of peer-induced termination. If there are no
+                // more pending messages to read, or if the pipe was configured to drop
+                // pending messages, we can move directly to the term_ack_sent state.
+                // Otherwise we'll hang up in waiting_for_delimiter state till all
+                // pending messages are read.
+                if (delay) {
+                    state = State.WAITING_FOR_DELIMITER;
+                }
+                else {
+                    state = State.TERM_ACK_SENT;
+                    outpipe = null;
+                    sendPipeTermAck(peer, state);
+                }
+                break;
+            case Delimiter:
+                state = State.DELIMITER_RECEIVED;
+                break;
+            default:
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
+                break;
+            }
+            break;
+        case WAITING_FOR_DELIMITER:
+            switch (event) {
+            case Terminate:
+                if (!delay) {
+                    // There are still pending messages available, but the user calls
+                    // 'terminate'. We can act as if all the pending messages were read.
+                    outpipe = null;
+                    state = State.TERM_ACK_SENT;
+                    sendPipeTermAck(peer, state);
+                }
+                else {
+                    // If there are pending messages still available, do nothing.
+                }
+                writeDelimiter();
+                break;
+            case Delimiter:
+                outpipe = null;
+                state = State.TERM_ACK_SENT;
+                sendPipeTermAck(peer, state);
+                break;
+            default:
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
+                break;
+            }
+            break;
+        case DELIMITER_RECEIVED:
+            switch (event) {
+            case Terminate:
+                // We've already got delimiter, but not term command yet. We can ignore
+                // the delimiter and ack synchronously terminate as if we were in
+                // active state.
+                state = State.TERM_REQ_SENT_1;
+                sendPipeTerm(peer);
+                writeDelimiter();
+                break;
+            case PipeTerm:
+                // Delimiter happened to arrive before the term command. Now we have the
+                // term command as well, so we can move straight to term_ack_sent state.
+                state = State.TERM_ACK_SENT;
+                outpipe = null;
+                sendPipeTermAck(peer, state);
+                break;
+            default:
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
+                break;
+            }
+            break;
+        case TERM_REQ_SENT_1:
+            switch (event) {
+            case Terminate:
+                // If terminate was already called, we can ignore the duplicit invocation.
+                return;
+            case PipeTerm:
+                // This is the case where both ends of the pipe are closed in parallel.
+                // We simply reply to the request by ack and continue waiting for our
+                // own ack.
+                state = State.TERM_REQ_SENT_2;
+                outpipe = null;
+                sendPipeTermAck(peer, state);
+                break;
+            case PipeTermAck:
+                outpipe = null;
+                switch (peerState) {
+                case TERM_ACK_SENT:
+                    // we have to ack the peer before deallocating this side of the pipe.
+                    sendPipeTermAck(peer, state);
+                    break;
+                default:
+                    // in other cases, no need to send another ack
+                    break;
+                }
+                closeInbound();
+                break;
+            default:
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
+                break;
+            }
+            break;
+        case TERM_REQ_SENT_2:
+            switch (event) {
+            case Terminate:
+                // If terminate was already called, we can ignore the duplicit invocation.
+                return;
+            case PipeTermAck:
+                // nothing to do
+                if (peerState == State.TERM_ACK_SENT) {
+                    System.out.println();
+                    System.out.println(">>> Run Event " + event + " : " + state + " " + state + " peer: " + peerState);
+                    System.out.println();
+                }
+                else {
+                    assert (peerState == State.TERM_REQ_SENT_2) : peerState;
+                }
+                closeInbound();
+                break;
+            default:
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
+                break;
+            }
+            break;
+        case TERM_ACK_SENT:
+            switch (event) {
+            case Terminate:
+                // If the pipe is in the final phase of async termination, it's going to
+                // closed anyway. No need to do anything special here.
+                return;
+            case PipeTermAck:
+//                assert (peerState == State.TERM_REQ_SENT_1 | peerState == State.TERM_REQ_SENT_2) : peerState;
+                // Simply deallocate the pipe.
+                closeInbound();
+                break;
+            default:
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
+                break;
+            }
+            break;
+        default:
+            break;
         }
     }
 
@@ -535,15 +637,7 @@ public class Pipe extends ZObject
     private void processDelimiter()
     {
         assert (state == State.ACTIVE || state == State.WAITING_FOR_DELIMITER);
-
-        if (state == State.ACTIVE) {
-            state = State.DELIMITER_RECEIVED;
-        }
-        else {
-            outpipe = null;
-            sendPipeTermAck(peer);
-            state = State.TERM_ACK_SENT;
-        }
+        runEvent(Event.Delimiter, null);
     }
 
     //  Temporarily disconnects the inbound message stream and drops

@@ -10,6 +10,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.zeromq.ZMQ.Socket;
 
@@ -21,10 +22,10 @@ public class TestPushPullThreadedTcp
 {
     private class Worker implements Runnable
     {
-        private final int    count;
-        private final AtomicBoolean  finished = new AtomicBoolean();
-        private int          idx;
-        private final Socket receiver;
+        private final int           count;
+        private final AtomicBoolean finished = new AtomicBoolean();
+        private int                 idx;
+        private final Socket        receiver;
 
         public Worker(Socket receiver, int count)
         {
@@ -76,7 +77,8 @@ public class TestPushPullThreadedTcp
         }
     }
 
-//    @Test
+    @Test
+    @Ignore
     public void testRepeated() throws Exception
     {
         for (int idx = 0; idx < 2000; ++idx) {
@@ -90,6 +92,7 @@ public class TestPushPullThreadedTcp
     @Test
     public void testPushPull1() throws Exception
     {
+        System.out.println("Sending 1 message");
         test(1);
     }
 
@@ -98,6 +101,20 @@ public class TestPushPullThreadedTcp
     {
         System.out.println("Sending 500 messages");
         test(500);
+    }
+
+    @Test
+    public void testPushPull1000() throws Exception
+    {
+        System.out.println("Sending 1000 messages");
+        test(1000);
+    }
+
+    @Test
+    public void testPushPull10000() throws Exception
+    {
+        System.out.println("Sending 10000 messages");
+        test(10000);
     }
 
     @Test

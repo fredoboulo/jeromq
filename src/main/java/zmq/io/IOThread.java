@@ -1,17 +1,19 @@
 package zmq.io;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.nio.channels.SelectableChannel;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import zmq.Command;
 import zmq.Ctx;
 import zmq.Mailbox;
+import zmq.Reaper;
+import zmq.ZError;
 import zmq.ZObject;
 import zmq.poll.IPollEvents;
 import zmq.poll.Poller;
 
-public class IOThread extends ZObject implements IPollEvents, Closeable
+public final class IOThread extends ZObject implements IPollEvents
 {
     //  I/O thread accesses incoming commands via this mailbox.
     private final Mailbox mailbox;
@@ -22,7 +24,13 @@ public class IOThread extends ZObject implements IPollEvents, Closeable
     //  I/O multiplexing is performed using a poller object.
     private final Poller poller;
 
+    // I/O objects being plugged at the moment
+    private final Set<IOObject> plugs = new CopyOnWriteArraySet<>();
+
     private final String name;
+
+    // If true, the I/O thread is being reaped
+    private boolean reaping;
 
     public IOThread(Ctx ctx, int tid)
     {
@@ -41,11 +49,10 @@ public class IOThread extends ZObject implements IPollEvents, Closeable
         poller.start();
     }
 
-    @Override
-    public void close() throws IOException
+    private void destroy() throws ZError.IOException
     {
         poller.destroy();
-        mailbox.close();
+        mailbox.destroy();
     }
 
     public void stop()
@@ -66,8 +73,11 @@ public class IOThread extends ZObject implements IPollEvents, Closeable
     @Override
     public void inEvent()
     {
+        assert poller.inWorkerThread();
+
         //  TODO: Do we want to limit number of commands I/O thread can
         //  process in a single go?
+        assert (!reaping);
 
         while (true) {
             //  Get the next command. If there is none, exit.
@@ -78,20 +88,67 @@ public class IOThread extends ZObject implements IPollEvents, Closeable
 
             //  Process the command.
             cmd.process();
+            if (reaping) {
+                break;
+            }
         }
     }
 
-    Poller getPoller()
+    public Poller getPoller(IOObject io)
     {
-        assert (poller != null);
+        boolean added = plugs.add(io);
+        assert (added);
         return poller;
     }
 
-    @Override
-    protected void processStop()
+    public void givePoller(IOObject io)
     {
+        plugs.remove(io);
+        if (plugs.isEmpty() && reaping) {
+            sendReaped(this);
+        }
+    }
+
+    @Override
+    protected void processStop(int tid)
+    {
+        assert (getTid() == tid) : getTid() + "<>" + tid;
+        // we called ourselves
+        assert poller.inWorkerThread();
+
+        reaping = true;
         poller.removeHandle(mailboxHandle);
 
+        // transfer the ownership of this I/O thread to the reaper thread
+        // who will take care of the rest of the shutdown process
+        sendReap(this);
+    }
+
+    @Override
+    public void processReap(ZObject object)
+    {
+        assert (reaping);
+        assert (object instanceof Reaper) : object;
+
+        Reaper reaper = (Reaper) object;
+        if (plugs.isEmpty()) {
+            reaper.processReaped(this);
+        }
+    }
+
+    @Override
+    public void processReaped(ZObject object)
+    {
+        assert (reaping);
+        assert (object instanceof Reaper);
+
         poller.stop();
+        destroy();
+    }
+
+    @Override
+    public String toString()
+    {
+        return name;
     }
 }

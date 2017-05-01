@@ -82,6 +82,12 @@ abstract class PollerBase implements Runnable
         return worker;
     }
 
+    @Override
+    public String toString()
+    {
+        return worker.getName();
+    }
+
     long clock()
     {
         return Clock.nowMS();
@@ -105,12 +111,17 @@ abstract class PollerBase implements Runnable
         load.addAndGet(amount);
     }
 
+    public boolean inWorkerThread()
+    {
+        return (Thread.currentThread() == worker);
+    }
+
     //  Add a timeout to expire in timeout_ milliseconds. After the
     //  expiration timerEvent on sink_ object will be called with
     //  argument set to id_.
     public void addTimer(long timeout, IPollEvents sink, int id)
     {
-        assert (Thread.currentThread() == worker);
+        assert inWorkerThread();
 
         final long expiration = clock() + timeout;
         TimerInfo info = new TimerInfo(sink, id);
@@ -122,7 +133,7 @@ abstract class PollerBase implements Runnable
     //  Cancel the timer created by sink_ object with ID equal to id_.
     public void cancelTimer(IPollEvents sink, int id)
     {
-        assert (Thread.currentThread() == worker);
+        assert inWorkerThread();
 
         TimerInfo copy = new TimerInfo(sink, id);
         //  Complexity of this operation is O(n). We assume it is rarely used.
@@ -138,7 +149,7 @@ abstract class PollerBase implements Runnable
     //  to wait to match the next timer or 0 meaning "no timers".
     protected long executeTimers()
     {
-        assert (Thread.currentThread() == worker);
+        assert inWorkerThread();
 
         changed = false;
 

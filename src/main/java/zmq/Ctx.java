@@ -2,7 +2,6 @@ package zmq;
 
 import java.io.IOException;
 import java.nio.channels.Selector;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
@@ -11,6 +10,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -85,7 +86,7 @@ public class Ctx
     private final AtomicBoolean starting = new AtomicBoolean(true);
 
     //  If true, zmq_term was already called.
-    private boolean terminating;
+    private final AtomicBoolean terminating = new AtomicBoolean();
 
     //  Synchronization of accesses to global slot-related data:
     //  sockets, emptySlots, terminating. It also synchronizes
@@ -118,7 +119,7 @@ public class Ctx
     private final Lock endpointsSync;
 
     //  Maximum socket ID.
-    private static AtomicInteger maxSocketId = new AtomicInteger(0);
+    private static final AtomicInteger maxSocketId = new AtomicInteger(0);
 
     //  Maximum number of sockets that can be opened at the same time.
     private int maxSockets;
@@ -146,8 +147,7 @@ public class Ctx
 
     public Ctx()
     {
-        active = true;
-        terminating = false;
+        tag = 0xabadcafe;
         reaper = null;
         slotCount = 0;
         slots = null;
@@ -162,9 +162,9 @@ public class Ctx
 
         termMailbox = new Mailbox(this, "terminater", -1);
 
-        emptySlots = new ArrayDeque<>();
+        emptySlots = new ConcurrentLinkedDeque<>();
         ioThreads = new ArrayList<>();
-        sockets = new ArrayList<>();
+        sockets = new CopyOnWriteArrayList<>();
         endpoints = new HashMap<>();
     }
 
@@ -172,13 +172,14 @@ public class Ctx
     {
         assert (sockets.isEmpty());
 
-        for (IOThread it : ioThreads) {
-            it.stop();
+        //  Deallocate the reaper thread object.
+        if (reaper != null) {
+            reaper.destroy();
         }
-        for (IOThread it : ioThreads) {
-            it.close();
-        }
-        ioThreads.clear();
+        //  Deallocate the array of mailboxes. No special work is
+        //  needed as mailboxes themselves were deallocated with their
+        //  corresponding io_thread/socket objects.
+        termMailbox.destroy();
 
         selectorSync.lock();
         try {
@@ -193,24 +194,7 @@ public class Ctx
             selectorSync.unlock();
         }
 
-        //  Deallocate the reaper thread object.
-        if (reaper != null) {
-            reaper.close();
-        }
-        //  Deallocate the array of mailboxes. No special work is
-        //  needed as mailboxes themselves were deallocated with their
-        //  corresponding io_thread/socket objects.
-        termMailbox.close();
-
-        active = false;
-    }
-
-    /**
-     * @return false if {@link #terminate()}terminate() has been called.
-     */
-    public boolean isActive()
-    {
-        return active;
+        tag = 0xdeadbeef;
     }
 
     /**
@@ -244,8 +228,7 @@ public class Ctx
             if (!starting.get()) {
                 //  Check whether termination was already underway, but interrupted and now
                 //  restarted.
-                boolean restarted = terminating;
-                terminating = true;
+                boolean restarted = terminating.getAndSet(true);
 
                 //  First attempt to terminate the context.
                 if (!restarted) {
@@ -253,10 +236,12 @@ public class Ctx
                     //  can be interrupted. If there are no sockets we can ask reaper
                     //  thread to stop.
                     for (SocketBase socket : sockets) {
+                        // send the stop command to the application thread
                         socket.stop();
                     }
+
                     if (sockets.isEmpty()) {
-                        reaper.stop();
+                        reaper.stop(ioThreads);
                     }
                 }
             }
@@ -295,8 +280,7 @@ public class Ctx
     {
         slotSync.lock();
         try {
-            if (!starting.get() && !terminating) {
-                terminating = true;
+            if (!starting.get() && terminating.compareAndSet(false, true)) {
                 //  Send stop command to sockets so that any blocking calls
                 //  can be interrupted. If there are no sockets we can ask reaper
                 //  thread to stop.
@@ -304,7 +288,7 @@ public class Ctx
                     socket.stop();
                 }
                 if (sockets.isEmpty()) {
-                    reaper.stop();
+                    reaper.stop(ioThreads);
                 }
 
             }
@@ -389,7 +373,7 @@ public class Ctx
             }
 
             //  Once zmq_term() was called, we can't create new sockets.
-            if (terminating) {
+            if (terminating.get()) {
                 throw new ZError.CtxTerminatedException();
             }
 
@@ -465,27 +449,39 @@ public class Ctx
         }
     }
 
-    void destroySocket(SocketBase socket)
+    /**
+     * Called by the reaper in its thread to inform that a socket is totally reaped.
+     * @param socket the reaped socket.
+     */
+    void reaped(SocketBase socket)
     {
         slotSync.lock();
 
         //  Free the associated thread slot.
         try {
             int tid = socket.getTid();
-            emptySlots.add(tid);
-            slots[tid] = null;
-
-            //  Remove the socket from the list of sockets.
-            sockets.remove(socket);
-
-            //  If zmq_term() was already called and there are no more socket
-            //  we can ask reaper thread to terminate.
-            if (terminating && sockets.isEmpty()) {
-                reaper.stop();
+            if (!emptySlots.contains(tid)) {
+                slots[tid] = null;
+                // offer a slot at the end of the queue.
+                emptySlots.offerLast(tid);
             }
         }
         finally {
             slotSync.unlock();
+        }
+    }
+
+    void destroySocket(SocketBase socket)
+    {
+        //  Remove the socket from the list of sockets.
+        if (sockets.remove(socket)) {
+            socket.close();
+
+            //  If zmq_term() was already called and there are no more socket
+            //  we can ask reaper thread to terminate.
+            if (terminating.get() && sockets.isEmpty()) {
+                reaper.stop(ioThreads);
+            }
         }
     }
 
@@ -725,9 +721,9 @@ public class Ctx
             Msg id = new Msg(bindOptions.identitySize);
             id.put(bindOptions.identity, 0, bindOptions.identitySize);
             id.setFlags(Msg.IDENTITY);
-            boolean written = pendingConnection.bindPipe.write(id);
-            assert (written);
-            pendingConnection.bindPipe.flush();
+            if (pendingConnection.bindPipe.write(id)) {
+                pendingConnection.bindPipe.flush();
+            }
         }
     }
 

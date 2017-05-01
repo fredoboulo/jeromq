@@ -5,61 +5,77 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
+import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
+import perf.PerformanceTests;
+
+@Category(PerformanceTests.class)
 public class TestShutdownStress
 {
     private static final int THREAD_COUNT = 100;
 
     class Worker implements Runnable
     {
-        SocketBase s;
+        private final SocketBase socket;
 
-        Worker(SocketBase s) throws IOException
+        Worker(SocketBase socket) throws IOException
         {
-            this.s = s;
+            this.socket = socket;
         }
 
         @Override
         public void run()
         {
-            boolean rc = ZMQ.connect(s, "tcp://127.0.0.1:*");
+            boolean rc = ZMQ.connect(socket, "tcp://127.0.0.1:*");
             assertThat(rc, is(true));
 
             //  Start closing the socket while the connecting process is underway.
-            ZMQ.close(s);
+            ZMQ.close(socket);
+        }
+    }
+
+    @Test(timeout = 4000)
+    public void testShutdownStress() throws Exception
+    {
+        for (int idx = 0; idx < 10; idx++) {
+            Ctx ctx = ZMQ.init(7);
+            assertThat(ctx, notNullValue());
+
+            SocketBase pub = ZMQ.socket(ctx, ZMQ.ZMQ_PUB);
+            assertThat(pub, notNullValue());
+
+            boolean rc = ZMQ.bind(pub, "tcp://127.0.0.1:*");
+            assertThat(rc, is(true));
+
+            ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
+
+            for (int i = 0; i != THREAD_COUNT; i++) {
+                SocketBase sub = ZMQ.socket(ctx, ZMQ.ZMQ_SUB);
+                assert (sub != null);
+                executor.submit(new Worker(sub));
+            }
+
+            executor.shutdown();
+            executor.awaitTermination(30, TimeUnit.SECONDS);
+
+            ZMQ.close(pub);
+            ZMQ.term(ctx);
         }
     }
 
     @Test
-    public void testShutdownStress() throws Exception
+    @Ignore
+    public void testRepeated() throws Exception
     {
-        Thread[] threads = new Thread[THREAD_COUNT];
-
-        for (int j = 0; j != 10; j++) {
-            Ctx ctx = ZMQ.init(7);
-            assertThat(ctx, notNullValue());
-
-            SocketBase s1 = ZMQ.socket(ctx, ZMQ.ZMQ_PUB);
-            assertThat(s1, notNullValue());
-
-            boolean rc = ZMQ.bind(s1, "tcp://127.0.0.1:*");
-            assertThat(rc, is(true));
-
-            for (int i = 0; i != THREAD_COUNT; i++) {
-                SocketBase s2 = ZMQ.socket(ctx, ZMQ.ZMQ_SUB);
-                assert (s2 != null);
-                threads[i] = new Thread(new Worker(s2));
-                threads[i].start();
-            }
-
-            for (int i = 0; i != THREAD_COUNT; i++) {
-                threads[i].join();
-            }
-
-            ZMQ.close(s1);
-            ZMQ.term(ctx);
+        for (int idx = 0; idx < 400; idx++) {
+            System.out.println("---------- " + idx + " ---------- ");
+            testShutdownStress();
         }
     }
 }

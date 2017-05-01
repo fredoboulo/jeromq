@@ -9,14 +9,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import zmq.io.IOThread;
-import zmq.io.SessionBase;
-import zmq.io.net.Address;
-import zmq.pipe.Pipe;
 import zmq.util.Errno;
 
 public class Helper
@@ -73,72 +67,6 @@ public class Helper
             }
             src.get(buf, 0, remaining);
             return remaining;
-        }
-
-    }
-
-    public static DummyCtx ctx = new DummyCtx();
-
-    public static class DummyIOThread extends IOThread
-    {
-        public DummyIOThread()
-        {
-            super(ctx, 2);
-        }
-    }
-
-    public static class DummySocket extends SocketBase
-    {
-        public DummySocket()
-        {
-            super(ctx, counter.get(), counter.get());
-            counter.incrementAndGet();
-        }
-
-        @Override
-        protected void xattachPipe(Pipe pipe, boolean icanhasall, boolean isLocallyInitiated)
-        {
-        }
-
-        @Override
-        protected void xpipeTerminated(Pipe pipe)
-        {
-        }
-
-    }
-
-    public static class DummySession extends SessionBase
-    {
-        public List<Msg> out = new ArrayList<Msg>();
-
-        public DummySession()
-        {
-            this(new DummyIOThread(), false, new DummySocket(), new Options(), new Address("tcp", "localhost:9090"));
-        }
-
-        public DummySession(IOThread ioThread, boolean connect, SocketBase socket, Options options, Address addr)
-        {
-            super(ioThread, connect, socket, options, addr);
-        }
-
-        @Override
-        public boolean pushMsg(Msg msg)
-        {
-            System.out.println("session.write " + msg);
-            out.add(msg);
-            return true;
-        }
-
-        @Override
-        public Msg pullMsg()
-        {
-            System.out.println("session.read " + out);
-            if (out.size() == 0) {
-                return null;
-            }
-            Msg msg = out.remove(0);
-
-            return msg;
         }
 
     }
@@ -298,5 +226,123 @@ public class Helper
 
         in.read(buf, 0, reslen);
         System.out.println("recv " + reslen + " " + new String(buf, 0, reslen, ZMQ.CHARSET));
+    }
+
+    /**
+     * Repeat count times the string in input.
+     * @param count the number of repeats
+     * @param string the string to repeat
+     * @return the repeated string
+     */
+    public static String repeat(int count, String string)
+    {
+        return count < 1 ? "" : String.format(String.format("%%%ds", count), " ").replace(" ", string);
+    }
+
+    /**
+     * Provides a string able to erase count characters on the console.
+     * @param count the number of characters to erase.
+     * @return the erasing string.
+     */
+    public static String erase(int count)
+    {
+        return repeat(count, "\b \b");
+    }
+
+    /**
+     * Provides a string able to rewind to count characters on the console.
+     * @param count the number of characters to rewind.
+     * @return the rewinding string.
+     */
+    public static String rewind(int count)
+    {
+        return repeat(count, "\b");
+    }
+
+    /**
+     * Provides a string able to erase a string on the console.
+     * @param string the string to erase.
+     * @return the erasing string.
+     */
+    public static String erase(String string)
+    {
+        return erase(string.length());
+    }
+
+    /**
+     * Provides a string able to rewind to a string on the console.
+     * @param count the number of characters to rewind.
+     * @return the rewinding string.
+     */
+    public static String rewind(String string)
+    {
+        return rewind(string.length());
+    }
+
+    public static String toString(int... zmq)
+    {
+        if (zmq.length == 0) {
+            return "[]";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+        for (int s : zmq) {
+            String string = toString(s);
+            builder.append(string);
+            builder.append(", ");
+        }
+        builder.append("]");
+        return builder.toString();
+    }
+
+    public static String toString(int zmq)
+    {
+        String string = Integer.toString(zmq);
+        switch (zmq) {
+        case ZMQ.ZMQ_DEALER:
+            string = "DEALER";
+            break;
+        case ZMQ.ZMQ_ROUTER:
+            string = "ROUTER";
+            break;
+        case ZMQ.ZMQ_REQ:
+            string = "REQ";
+            break;
+        case ZMQ.ZMQ_REP:
+            string = "REP";
+            break;
+        case ZMQ.ZMQ_PAIR:
+            string = "PAIR";
+            break;
+        case ZMQ.ZMQ_PUB:
+            string = "PUB";
+            break;
+        case ZMQ.ZMQ_SUB:
+            string = "SUB";
+            break;
+        case ZMQ.ZMQ_PUSH:
+            string = "PUSH";
+            break;
+        case ZMQ.ZMQ_PULL:
+            string = "PULL";
+            break;
+        case ZMQ.ZMQ_DECODER:
+            string = "DECODER";
+            break;
+        case ZMQ.ZMQ_ENCODER:
+            string = "ENCODER";
+            break;
+        case ZMQ.ZMQ_XPUB:
+            string = "XPUB";
+            break;
+        case ZMQ.ZMQ_XSUB:
+            string = "XSUB";
+            break;
+
+        default:
+            break;
+        }
+        return string;
     }
 }

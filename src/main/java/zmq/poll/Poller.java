@@ -65,7 +65,7 @@ public final class Poller extends PollerBase implements Runnable
         @Override
         public String toString()
         {
-            return "Handle-" + fd;
+            return "Handle-" + handler;
         }
     }
 

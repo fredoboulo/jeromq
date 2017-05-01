@@ -203,6 +203,7 @@ public class TcpListener extends Own implements IPollEvents
         }
         catch (IOException e) {
             close();
+            destroy();
             errno.set(ZError.EADDRINUSE);
             return false;
         }
