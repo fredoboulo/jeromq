@@ -1,7 +1,11 @@
 package zmq;
 
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import zmq.io.IOThread;
@@ -15,7 +19,7 @@ public abstract class Own extends ZObject
 
     //  True if termination was already initiated. If so, we can destroy
     //  the object if there are no more child objects or pending term acks.
-    private boolean terminating;
+    private final AtomicBoolean terminating = new AtomicBoolean();
 
     //  Sequence number of the last command sent to this object.
     private final AtomicLong sendSeqnum;
@@ -32,8 +36,8 @@ public abstract class Own extends ZObject
     //typedef std::set <own_t*> owned_t;
     private final Set<Own> owned;
 
-    //  Number of events we have to get before we can destroy the object.
-    private int termAcks;
+    //  List of children we have to wait for term ack before we can destroy the object.
+    private final List<Object> pendingAcks = new CopyOnWriteArrayList<>();
 
     public final Errno errno;
 
@@ -45,11 +49,9 @@ public abstract class Own extends ZObject
     protected Own(Ctx parent, int tid)
     {
         super(parent, tid);
-        terminating = false;
         sendSeqnum = new AtomicLong(0);
         processedSeqnum = 0;
         owner = null;
-        termAcks = 0;
 
         options = new Options();
         errno = options.errno;
@@ -61,11 +63,9 @@ public abstract class Own extends ZObject
     {
         super(ioThread);
         this.options = options;
-        terminating = false;
         sendSeqnum = new AtomicLong(0);
         processedSeqnum = 0;
         owner = null;
-        termAcks = 0;
         errno = options.errno;
 
         owned = new HashSet<>();
@@ -127,12 +127,6 @@ public abstract class Own extends ZObject
     @Override
     protected final void processTermReq(Own object)
     {
-        //  When shutting down we can ignore termination requests from owned
-        //  objects. The termination request was already sent to the object.
-        if (terminating) {
-            return;
-        }
-
         //  If I/O object is well and alive let's ask it to terminate.
 
         //  If not found, we assume that termination request was already sent to
@@ -141,7 +135,15 @@ public abstract class Own extends ZObject
             return;
         }
 
-        registerTermAcks(1);
+        //  When shutting down we can ignore termination requests from owned
+        //  objects. The termination request was already sent to the object.
+        if (terminating.get()) {
+            // but we can still check for termination acknowledgments ...
+            checkTermAcks();
+            return;
+        }
+        //  If I/O object is well and alive let's ask it to terminate.
+        registerTermAcks(object);
 
         //  Note that this object is the root of the (partial shutdown) thus, its
         //  value of linger is used, rather than the value stored by the children.
@@ -151,26 +153,26 @@ public abstract class Own extends ZObject
     @Override
     protected final void processOwn(Own object)
     {
+        //  Store the reference to the owned object.
+        owned.add(object);
+
         //  If the object is already being shut down, new owned objects are
         //  immediately asked to terminate. Note that linger is set to zero.
-        if (terminating) {
-            registerTermAcks(1);
+        if (terminating.get()) {
+            registerTermAcks(object);
             sendTerm(object, 0);
             return;
         }
-
-        //  Store the reference to the owned object.
-        owned.add(object);
     }
 
     //  Ask owner object to terminate this object. It may take a while
     //  while actual termination is started. This function should not be
     //  called more than once.
-    protected final void terminate()
+    protected void terminate()
     {
         //  If termination is already underway, there's no point
         //  in starting it anew.
-        if (terminating) {
+        if (terminating.get()) {
             return;
         }
 
@@ -188,7 +190,7 @@ public abstract class Own extends ZObject
     //  Returns true if the object is in process of termination.
     protected final boolean isTerminating()
     {
-        return terminating;
+        return terminating.get();
     }
 
     //  Term handler is protected rather than private so that it can
@@ -198,18 +200,17 @@ public abstract class Own extends ZObject
     protected void processTerm(int linger)
     {
         //  Double termination should never happen.
-        assert (!terminating);
+        assert (!terminating.get());
+        terminating.set(true);
 
         //  Send termination request to all owned objects.
         for (Own it : owned) {
             sendTerm(it, linger);
         }
-        registerTermAcks(owned.size());
-        owned.clear();
+        registerTermAcks(owned);
 
         //  Start termination process and check whether by chance we cannot
         //  terminate immediately.
-        terminating = true;
         checkTermAcks();
     }
 
@@ -218,29 +219,40 @@ public abstract class Own extends ZObject
     //  register_tem_acks functions. When event occurs, call
     //  remove_term_ack. When number of pending acks reaches zero
     //  object will be deallocated.
-    final void registerTermAcks(int count)
+    private void registerTermAcks(Collection<?> objects)
     {
-        termAcks += count;
+        pendingAcks.addAll(objects);
+        owned.removeAll(objects);
     }
 
-    final void unregisterTermAck()
+    protected final void registerTermAcks(Object object)
     {
-        assert (termAcks > 0);
-        termAcks--;
+        pendingAcks.add(object);
+        owned.remove(object);
+    }
+
+    /**
+     * Unregisters a termination acknowledgment request from the object.
+     * @param object the owned object that acknowledge termination.
+     */
+    final void unregisterTermAck(Object object)
+    {
+        boolean removed = pendingAcks.remove(object);
+        assert (removed);
 
         //  This may be a last ack we are waiting for before termination...
         checkTermAcks();
     }
 
     @Override
-    protected final void processTermAck()
+    protected final void processTermAck(ZObject object)
     {
-        unregisterTermAck();
+        unregisterTermAck(object);
     }
 
     private void checkTermAcks()
     {
-        if (terminating && processedSeqnum == sendSeqnum.get() && termAcks == 0) {
+        if (terminating.get() && processedSeqnum == sendSeqnum.get() && pendingAcks.isEmpty()) {
             //  Sanity check. There should be no active children at this point.
             assert (owned.isEmpty()) : owned;
 

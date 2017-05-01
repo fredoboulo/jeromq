@@ -56,7 +56,7 @@ class Proxy
         itemsout[0] = new PollItem(frontend, ZMQ.ZMQ_POLLOUT);
         itemsout[1] = new PollItem(backend, ZMQ.ZMQ_POLLOUT);
 
-        Selector selector = frontend.getCtx().createSelector();
+        Selector selector = frontend.ctx.createSelector();
 
         try {
             while (state != State.TERMINATED) {
@@ -126,7 +126,7 @@ class Proxy
             }
         }
         finally {
-            frontend.getCtx().closeSelector(selector);
+            frontend.ctx.closeSelector(selector);
         }
 
         return true;

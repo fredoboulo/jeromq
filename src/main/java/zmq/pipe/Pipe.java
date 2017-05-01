@@ -60,7 +60,7 @@ public class Pipe extends ZObject
     //  term_req_sent1: 'terminate' was explicitly called by the user,
     //  term_req_sent2: user called 'terminate' and then we've got
     //      term command from the peer as well.
-    enum State
+    public enum State
     {
         ACTIVE,
         DELIMITER_RECEIVED,
@@ -367,7 +367,7 @@ public class Pipe extends ZObject
             else {
                 state = State.TERM_ACK_SENT;
                 outpipe = null;
-                sendPipeTermAck(peer);
+                sendPipeTermAck(peer, state);
             }
         }
         else
@@ -376,7 +376,7 @@ public class Pipe extends ZObject
         if (state == State.DELIMITER_RECEIVED) {
             state = State.TERM_ACK_SENT;
             outpipe = null;
-            sendPipeTermAck(peer);
+            sendPipeTermAck(peer, state);
         }
         else
         //  This is the case where both ends of the pipe are closed in parallel.
@@ -385,13 +385,16 @@ public class Pipe extends ZObject
         if (state == State.TERM_REQ_SENT_1) {
             state = State.TERM_REQ_SENT_2;
             outpipe = null;
-            sendPipeTermAck(peer);
+            sendPipeTermAck(peer, state);
         }
     }
 
     @Override
-    protected void processPipeTermAck()
+    protected void processPipeTermAck(State peerState)
     {
+        assert (peerState == State.TERM_ACK_SENT || peerState == State.TERM_REQ_SENT_1
+                || peerState == State.TERM_REQ_SENT_2);
+
         //  Notify the user that all the references to the pipe should be dropped.
         assert (sink != null);
         sink.pipeTerminated(this);
@@ -402,10 +405,19 @@ public class Pipe extends ZObject
         //  All the other states are invalid.
         if (state == State.TERM_REQ_SENT_1) {
             outpipe = null;
-            sendPipeTermAck(peer);
+            if (peerState == State.TERM_REQ_SENT_1) {
+                // in this case, no need to send another ack
+                return;
+            }
+            if (peerState == State.TERM_REQ_SENT_2) {
+                // in this case, no need to send another ack
+                return;
+            }
+            sendPipeTermAck(peer, state);
         }
-        else {
-            assert (state == State.TERM_ACK_SENT || state == State.TERM_REQ_SENT_2);
+        else if (peerState == State.TERM_REQ_SENT_2) {
+            // ok...
+            return;
         }
 
         // TODO V4 not in zeromq, but no harm. Remove it?
@@ -455,15 +467,15 @@ public class Pipe extends ZObject
         //  The simple sync termination case. Ask the peer to terminate and wait
         //  for the ack.
         else if (state == State.ACTIVE) {
-            sendPipeTerm(peer);
             state = State.TERM_REQ_SENT_1;
+            sendPipeTerm(peer);
         }
         //  There are still pending messages available, but the user calls
         //  'terminate'. We can act as if all the pending messages were read.
         else if (state == State.WAITING_FOR_DELIMITER && !this.delay) {
             outpipe = null;
-            sendPipeTermAck(peer);
             state = State.TERM_ACK_SENT;
+            sendPipeTermAck(peer, state);
         }
         //  If there are pending messages still available, do nothing.
         else if (state == State.WAITING_FOR_DELIMITER) {
@@ -473,8 +485,8 @@ public class Pipe extends ZObject
         //  the delimiter and ack synchronously terminate as if we were in
         //  active state.
         else if (state == State.DELIMITER_RECEIVED) {
-            sendPipeTerm(peer);
             state = State.TERM_REQ_SENT_1;
+            sendPipeTerm(peer);
         }
         //  There are no other states.
         else {
@@ -484,6 +496,7 @@ public class Pipe extends ZObject
         //  Stop outbound flow of messages.
         outActive = false;
 
+        YPipeBase<Msg> outpipe = this.outpipe;
         if (outpipe != null) {
             //  Drop any unfinished outbound messages.
             rollback();
@@ -541,8 +554,8 @@ public class Pipe extends ZObject
         }
         else {
             outpipe = null;
-            sendPipeTermAck(peer);
             state = State.TERM_ACK_SENT;
+            sendPipeTermAck(peer, state);
         }
     }
 

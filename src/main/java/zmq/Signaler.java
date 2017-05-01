@@ -1,6 +1,5 @@
 package zmq;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
@@ -18,7 +17,7 @@ import zmq.util.Utils;
 //  to signal_fd there can be at most one signal in the signaler at any
 //  given moment. Attempt to send a signal before receiving the previous
 //  one will result in undefined behaviour.
-final class Signaler implements Closeable
+final class Signaler
 {
     //  Underlying write & read file descriptor.
     private final Pipe.SinkChannel   w;
@@ -31,14 +30,14 @@ final class Signaler implements Closeable
     private final AtomicInteger wcursor = new AtomicInteger(0);
     private int                 rcursor = 0;
 
-    private final Errno errno;
-    private final int   pid;
-    private final Ctx   ctx;
+    private final Errno  errno;
+    private final String name;
+    private final Ctx    ctx;
 
-    Signaler(Ctx ctx, int pid, Errno errno)
+    Signaler(Ctx ctx, String name, Errno errno)
     {
         this.ctx = ctx;
-        this.pid = pid;
+        this.name = name;
         this.errno = errno;
         //  Create the socket pair for signaling.
 
@@ -59,8 +58,7 @@ final class Signaler implements Closeable
         }
     }
 
-    @Override
-    public void close() throws IOException
+    void destroy() throws ZError.IOException
     {
         IOException exception = null;
         try {
@@ -79,7 +77,7 @@ final class Signaler implements Closeable
         }
         ctx.closeSelector(selector);
         if (exception != null) {
-            throw exception;
+            throw new ZError.IOException(exception);
         }
     }
 
@@ -174,6 +172,6 @@ final class Signaler implements Closeable
     @Override
     public String toString()
     {
-        return "Signaler[" + pid + "]";
+        return "Signaler[" + name + "]";
     }
 }

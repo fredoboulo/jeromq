@@ -83,7 +83,7 @@ public class Helper
     {
         public DummyIOThread()
         {
-            super(ctx, 2);
+            super(Helper.ctx, 2);
         }
     }
 
@@ -91,7 +91,7 @@ public class Helper
     {
         public DummySocket()
         {
-            super(ctx, counter.get(), counter.get());
+            super(Helper.ctx, counter.get(), counter.get());
             counter.incrementAndGet();
         }
 
@@ -298,5 +298,56 @@ public class Helper
 
         in.read(buf, 0, reslen);
         System.out.println("recv " + reslen + " " + new String(buf, 0, reslen, ZMQ.CHARSET));
+    }
+
+    /**
+     * Repeat count times the string in input.
+     * @param count the number of repeats
+     * @param string the string to repeat
+     * @return the repeated string
+     */
+    public static String repeat(int count, String string)
+    {
+        return count < 1 ? "" : String.format(String.format("%%%ds", count), " ").replace(" ", string);
+    }
+
+    /**
+     * Provides a string able to erase count characters on the console.
+     * @param count the number of characters to erase.
+     * @return the erasing string.
+     */
+    public static String erase(int count)
+    {
+        return repeat(count, "\b \b");
+    }
+
+    /**
+     * Provides a string able to rewind to count characters on the console.
+     * @param count the number of characters to rewind.
+     * @return the rewinding string.
+     */
+    public static String rewind(int count)
+    {
+        return repeat(count, "\b");
+    }
+
+    /**
+     * Provides a string able to erase a string on the console.
+     * @param string the string to erase.
+     * @return the erasing string.
+     */
+    public static String erase(String string)
+    {
+        return erase(string.length());
+    }
+
+    /**
+     * Provides a string able to rewind to a string on the console.
+     * @param count the number of characters to rewind.
+     * @return the rewinding string.
+     */
+    public static String rewind(String string)
+    {
+        return rewind(string.length());
     }
 }

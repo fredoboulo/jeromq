@@ -11,7 +11,7 @@ import zmq.pipe.YPipeBase;
 public abstract class ZObject
 {
     //  Context provides access to the global state.
-    private final Ctx ctx;
+    protected final Ctx ctx;
 
     //  Thread ID of the thread the object belongs to.
     private int tid;
@@ -56,7 +56,7 @@ public abstract class ZObject
             break;
 
         case STOP:
-            processStop();
+            processStop(((Integer) cmd.arg).intValue());
             break;
 
         case PLUG:
@@ -88,7 +88,7 @@ public abstract class ZObject
             break;
 
         case PIPE_TERM_ACK:
-            processPipeTermAck();
+            processPipeTermAck((Pipe.State) cmd.arg);
             break;
 
         case TERM_REQ:
@@ -100,15 +100,15 @@ public abstract class ZObject
             break;
 
         case TERM_ACK:
-            processTermAck();
+            processTermAck((ZObject) cmd.arg);
             break;
 
         case REAP:
-            processReap((SocketBase) cmd.arg);
+            processReap((ZObject) cmd.arg);
             break;
 
         case REAPED:
-            processReaped();
+            processReaped((ZObject) cmd.arg);
             break;
 
         case INPROC_CONNECTED:
@@ -166,7 +166,7 @@ public abstract class ZObject
     {
         //  'stop' command goes always from administrative thread to
         //  the current object.
-        Command cmd = new Command(this, Command.Type.STOP);
+        Command cmd = new Command(this, Command.Type.STOP, Integer.valueOf(tid));
         ctx.sendCommand(tid, cmd);
     }
 
@@ -246,9 +246,9 @@ public abstract class ZObject
         sendCommand(cmd);
     }
 
-    protected final void sendPipeTermAck(Pipe destination)
+    protected final void sendPipeTermAck(Pipe destination, Pipe.State self)
     {
-        Command cmd = new Command(destination, Command.Type.PIPE_TERM_ACK);
+        Command cmd = new Command(destination, Command.Type.PIPE_TERM_ACK, self);
         sendCommand(cmd);
     }
 
@@ -266,19 +266,19 @@ public abstract class ZObject
 
     protected final void sendTermAck(Own destination)
     {
-        Command cmd = new Command(destination, Command.Type.TERM_ACK);
+        Command cmd = new Command(destination, Command.Type.TERM_ACK, this);
         sendCommand(cmd);
     }
 
-    protected final void sendReap(SocketBase socket)
+    protected final void sendReap(ZObject object)
     {
-        Command cmd = new Command(ctx.getReaper(), Command.Type.REAP, socket);
+        Command cmd = new Command(ctx.getReaper(), Command.Type.REAP, object);
         sendCommand(cmd);
     }
 
-    protected final void sendReaped()
+    protected final void sendReaped(ZObject object)
     {
-        Command cmd = new Command(ctx.getReaper(), Command.Type.REAPED);
+        Command cmd = new Command(ctx.getReaper(), Command.Type.REAPED, object);
         sendCommand(cmd);
     }
 
@@ -294,7 +294,7 @@ public abstract class ZObject
         ctx.sendCommand(Ctx.TERM_TID, cmd);
     }
 
-    protected void processStop()
+    protected void processStop(int tid)
     {
         throw new UnsupportedOperationException();
     }
@@ -339,7 +339,7 @@ public abstract class ZObject
         throw new UnsupportedOperationException();
     }
 
-    protected void processPipeTermAck()
+    protected void processPipeTermAck(Pipe.State peerState)
     {
         throw new UnsupportedOperationException();
     }
@@ -354,17 +354,17 @@ public abstract class ZObject
         throw new UnsupportedOperationException();
     }
 
-    protected void processTermAck()
+    protected void processTermAck(ZObject object)
     {
         throw new UnsupportedOperationException();
     }
 
-    protected void processReap(SocketBase socket)
+    protected void processReap(ZObject object)
     {
         throw new UnsupportedOperationException();
     }
 
-    protected void processReaped()
+    protected void processReaped(ZObject object)
     {
         throw new UnsupportedOperationException();
     }

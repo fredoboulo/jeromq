@@ -13,17 +13,19 @@ public class IOObject implements IPollEvents
 {
     private final Poller      poller;
     private final IPollEvents handler;
+    private final IOThread    ioThread;
 
     private boolean alive;
 
     public IOObject(IOThread ioThread, IPollEvents handler)
     {
+        this.ioThread = ioThread;
         assert (ioThread != null);
         assert (handler != null);
 
         this.handler = handler;
         //  Retrieve the poller from the thread we are running in.
-        poller = ioThread.getPoller();
+        poller = ioThread.getPoller(this);
     }
 
     //  When migrating an object from one I/O thread to another, first
@@ -36,6 +38,8 @@ public class IOObject implements IPollEvents
     public final void unplug()
     {
         alive = false;
+        // give the poller back to the I/O thread
+        ioThread.givePoller(this);
     }
 
     public final Handle addFd(SelectableChannel fd)

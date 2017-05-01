@@ -1,14 +1,17 @@
 package zmq;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.nio.channels.SelectableChannel;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import zmq.io.IOThread;
 import zmq.poll.IPollEvents;
 import zmq.poll.Poller;
 
-final class Reaper extends ZObject implements IPollEvents, Closeable
+public final class Reaper extends ZObject implements IPollEvents
 {
     //  Reaper thread accesses incoming commands via this mailbox.
     private final Mailbox mailbox;
@@ -17,20 +20,27 @@ final class Reaper extends ZObject implements IPollEvents, Closeable
     private final Poller.Handle mailboxHandle;
 
     //  I/O multiplexing is performed using a poller object.
-    private final Poller poller;
+    final Poller poller;
 
-    //  Number of sockets being reaped at the moment.
-    private int socketsReaping;
+    //  Sockets being reaped at the moment.
+    private final Set<SocketBase> sockets = new HashSet<>();
+    //  I/O threads being reaped at the moment.
+    private final Set<IOThread> pendingIOs = new HashSet<>();
+
+    //  If true, we are in the process of reaping I/O threads.
+    private final AtomicBoolean ioReaping = new AtomicBoolean();
 
     //  If true, we were already asked to terminate.
     private final AtomicBoolean terminating = new AtomicBoolean();
 
     private final String name;
 
+    //  I/O threads asked to reap by the context.
+    private List<IOThread> ioThreads;
+
     Reaper(Ctx ctx, int tid)
     {
         super(ctx, tid);
-        socketsReaping = 0;
         name = "reaper-" + tid;
         poller = new Poller(ctx, name);
 
@@ -41,11 +51,10 @@ final class Reaper extends ZObject implements IPollEvents, Closeable
         poller.setPollIn(mailboxHandle);
     }
 
-    @Override
-    public void close() throws IOException
+    void destroy() throws IOException
     {
         poller.destroy();
-        mailbox.close();
+        mailbox.destroy();
     }
 
     Mailbox getMailbox()
@@ -58,8 +67,12 @@ final class Reaper extends ZObject implements IPollEvents, Closeable
         poller.start();
     }
 
-    void stop()
+    // stops the reaper with the I/O threads in charge
+    public void stop(List<IOThread> ioThreads)
     {
+        if (this.ioThreads == null) {
+            this.ioThreads = ioThreads;
+        }
         if (!terminating.get()) {
             sendStop();
         }
@@ -78,44 +91,88 @@ final class Reaper extends ZObject implements IPollEvents, Closeable
             //  Process the command.
             cmd.process();
         }
+        // check if we can be destroyed at the end of every command
+        checkDestroy();
     }
 
     @Override
-    protected void processStop()
+    protected void processStop(int tid)
     {
-        terminating.set(true);
-
-        //  If there are no sockets being reaped finish immediately.
-        if (socketsReaping == 0) {
-            finishTerminating();
+        assert (getTid() == tid);
+        if (terminating.compareAndSet(false, true)) {
+            //  If there are no sockets being reaped finish immediately.
+            stopIO();
         }
     }
 
     @Override
-    protected void processReap(SocketBase socket)
+    protected void processReap(ZObject object)
     {
-        ++socketsReaping;
+        if (object instanceof SocketBase) {
+            SocketBase socket = (SocketBase) object;
+            // the socket pass into reaper's control.
+            // it will be released only when it tells it has been reaped.
+            sockets.add(socket);
 
-        //  Add the socket to the poller.
-        socket.startReaping(poller);
+            //  Add the socket to the poller.
+            socket.processReap(this);
+        }
+        if (object instanceof IOThread) {
+            // time to reap IO thread
+            assert (sockets.isEmpty());
+            assert (ioThreads != null);
+            assert (pendingIOs.contains(object));
+
+            IOThread io = (IOThread) object;
+            io.processReap(this);
+        }
     }
 
     @Override
-    protected void processReaped()
+    public void processReaped(ZObject object)
     {
-        --socketsReaping;
+        if (sockets.remove(object)) {
+            SocketBase socket = (SocketBase) object;
 
+            // the socket is notified that its reaping has been taken into account.
+            socket.processReaped(socket);
+            // the context is notified that the socket is totally deallocated.
+            ctx.reaped(socket);
+        }
+        if (terminating.get()) {
+            stopIO();
+        }
+        if (pendingIOs.remove(object)) {
+            assert (sockets.isEmpty());
+            assert (ioThreads != null);
+
+            IOThread io = (IOThread) object;
+            // I/O thread is notified that its reaping has been taken into account.
+            io.processReaped(this);
+        }
+        checkDestroy();
+    }
+
+    private void stopIO()
+    {
+        assert (ioThreads != null);
+        if (sockets.isEmpty() && ioReaping.compareAndSet(false, true)) {
+            pendingIOs.addAll(ioThreads);
+            for (IOThread io : ioThreads) {
+                io.stop();
+            }
+        }
+    }
+
+    private void checkDestroy()
+    {
         //  If reaped was already asked to terminate and there are no more sockets,
         //  finish immediately.
-        if (socketsReaping == 0 && terminating.get()) {
-            finishTerminating();
+        if (sockets.isEmpty() && terminating.get() && ioReaping.get() && pendingIOs.isEmpty()) {
+            assert (ioThreads != null);
+            sendDone();
+            poller.removeHandle(mailboxHandle);
+            poller.stop();
         }
-    }
-
-    private void finishTerminating()
-    {
-        sendDone();
-        poller.removeHandle(mailboxHandle);
-        poller.stop();
     }
 }

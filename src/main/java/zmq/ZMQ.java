@@ -636,6 +636,16 @@ public class ZMQ
      */
     public static int poll(Selector selector, PollItem[] items, int count, long timeout)
     {
+        try {
+            return pollUnsafe(selector, items, count, timeout);
+        }
+        catch (ClosedSelectorException e) {
+            return -1;
+        }
+    }
+
+    private static int pollUnsafe(Selector selector, PollItem[] items, int count, long timeout)
+    {
         Utils.checkArgument(items != null, "items have to be supplied for polling");
         if (count == 0) {
             if (timeout <= 0) {
@@ -648,6 +658,7 @@ public class ZMQ
         long end = 0L;
 
         HashMap<SelectableChannel, SelectionKey> saved = new HashMap<SelectableChannel, SelectionKey>();
+
         for (SelectionKey key : selector.keys()) {
             if (key.isValid()) {
                 saved.put(key.channel(), key);
@@ -726,6 +737,7 @@ public class ZMQ
                     PollItem item = (PollItem) key.attachment();
                     ready = item.readyOps(key, rc);
                     if (ready < 0) {
+                        selector.selectedKeys().remove(key);
                         return -1;
                     }
 
@@ -734,7 +746,6 @@ public class ZMQ
                     }
                 }
                 selector.selectedKeys().clear();
-
             }
             catch (ClosedSelectorException e) {
                 // context was closed asynchronously, exit gracefully

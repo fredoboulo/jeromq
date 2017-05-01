@@ -1,6 +1,5 @@
 package zmq;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SocketChannel;
@@ -101,7 +100,6 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         super(parent, tid);
         tag = 0xbaddecaf;
         ctxTerminated = false;
-        destroyed = false;
         lastTsc = 0;
         ticks = 0;
         rcvmore = false;
@@ -116,7 +114,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         inprocs = new MultiMap<>();
         pipes = new HashSet<>();
 
-        mailbox = new Mailbox(parent, "socket-" + sid, tid);
+        mailbox = new Mailbox(parent, toString(), sid);
     }
 
     //  Concrete algorithms for the x- methods are to be defined by
@@ -136,12 +134,6 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
     {
         try {
             monitorSync.lock();
-            try {
-                mailbox.close();
-            }
-            catch (IOException ignore) {
-            }
-
             stopMonitor();
             assert (destroyed);
         }
@@ -164,7 +156,9 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         //  'stop' command is sent from the threads that called zmq_term to
         //  the thread owning the socket. This way, blocking call in the
         //  owner thread can be interrupted.
-        sendStop();
+        if (!ctxTerminated) {
+            sendStop();
+        }
     }
 
     //  Check whether transport protocol, as specified in connect or
@@ -209,7 +203,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         //  If the socket is already being closed, ask any new pipes to terminate
         //  straight away.
         if (isTerminating()) {
-            registerTermAcks(1);
+            registerTermAcks(pipe);
             pipe.terminate(false);
         }
     }
@@ -856,13 +850,10 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
     public final void close()
     {
-        //  Mark the socket as dead
-        tag = 0xdeadbeef;
-
         //  Transfer the ownership of the socket from this application thread
         //  to the reaper thread which will take care of the rest of shutdown
         //  process.
-        sendReap(this);
+        processStop(getTid());
     }
 
     //  These functions are used by the polling mechanism to determine
@@ -877,19 +868,44 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         return xhasOut();
     }
 
+    @Override
+    protected void processReaped(ZObject self)
+    {
+        //  Mark the socket as dead
+        tag = 0xdeadbeef;
+
+        assert (self == this);
+        mailbox.destroy();
+    }
+
     //  Using this function reaper thread ask the socket to register with
     //  its poller.
-    final void startReaping(Poller poller)
+    @Override
+    protected void processReap(ZObject object)
     {
+        assert (object instanceof Reaper);
+        Reaper reaper = (Reaper) object;
+
         //  Plug the socket to the reaper thread.
-        this.poller = poller;
+        this.poller = reaper.poller;
         SelectableChannel fd = mailbox.getFd();
         handle = this.poller.addHandle(fd, this);
         this.poller.setPollIn(handle);
 
+        // speculative read of commands
+        inEvent();
+
         //  Initialize the termination and check whether it can be deallocated
         //  immediately.
         terminate();
+    }
+
+    @Override
+    protected void terminate()
+    {
+        super.terminate();
+        // termination can be called from several threads.
+        // We check every time if we can be destroyed.
         checkDestroy();
     }
 
@@ -898,6 +914,17 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
     //  If throttle argument is true, commands are processed at most once
     //  in a predefined time period.
     private boolean processCommands(int timeout, boolean throttle)
+    {
+        if (ctxTerminated) {
+            // we are passed to the control of the reaper, so we don't process the commands anymore
+            errno.set(ZError.ETERM); // Do not raise exception at the blocked operation
+            return false;
+        }
+
+        return processCommands(false, timeout, throttle);
+    }
+
+    private boolean processCommands(boolean reaper, int timeout, boolean throttle)
     {
         Command cmd;
         if (timeout != 0) {
@@ -934,6 +961,14 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         //  Process all the commands available at the moment.
         while (cmd != null) {
             cmd.process();
+
+            if (ctxTerminated && !reaper) {
+                // we processed the last command in the application thread.
+                // time to let the reaper do its job
+                errno.set(ZError.ETERM); // Do not raise exception at the blocked operation
+                return false;
+            }
+
             cmd = mailbox.recv(0);
         }
 
@@ -952,21 +987,19 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
     }
 
     @Override
-    protected final void processStop()
+    protected final void processStop(int tid)
     {
         //  Here, someone have called zmq_term while the socket was still alive.
         //  We'll remember the fact so that any blocking call is interrupted and any
         //  further attempt to use the socket will return ETERM. The user is still
         //  responsible for calling zmq_close on the socket though!
-        try {
-            monitorSync.lock();
-            stopMonitor();
+        if (!ctxTerminated) {
             ctxTerminated = true;
+            //  Transfer the ownership of the socket from this application thread
+            //  to the reaper thread which will take care of the rest of shutdown
+            //  process.
+            sendReap(this);
         }
-        finally {
-            monitorSync.unlock();
-        }
-
     }
 
     @Override
@@ -985,9 +1018,9 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
         //  Ask all attached pipes to terminate.
         for (Pipe pipe : pipes) {
+            registerTermAcks(pipe);
             pipe.terminate(false);
         }
-        registerTermAcks(pipes.size());
 
         //  Continue the termination process immediately.
         super.processTerm(linger);
@@ -1056,7 +1089,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         //  of the reaper thread. Process any commands from other threads/sockets
         //  that may be available at the moment. Ultimately, the socket will
         //  be destroyed.
-        processCommands(0, false);
+        processCommands(true, 0, false);
         checkDestroy();
     }
 
@@ -1072,8 +1105,8 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             //  Remove the socket from the context.
             destroySocket(this);
 
-            //  Notify the reaper about the fact.
-            sendReaped();
+            //  Notify the reaper about the fact the WE are reaped.
+            sendReaped(this);
 
             //  Deallocate.
             super.processDestroy();
@@ -1115,9 +1148,9 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
         //  Remove the pipe from the list of attached pipes and confirm its
         //  termination if we are already shutting down.
-        pipes.remove(pipe);
-        if (isTerminating()) {
-            unregisterTermAck();
+        boolean rc = pipes.remove(pipe);
+        if (isTerminating() && rc) {
+            unregisterTermAck(pipe);
         }
     }
 
@@ -1167,7 +1200,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             // Register events to monitor
             monitorEvents = events;
 
-            monitorSocket = getCtx().createSocket(ZMQ.ZMQ_PAIR);
+            monitorSocket = ctx.createSocket(ZMQ.ZMQ_PAIR);
             if (monitorSocket == null) {
                 return false;
             }
@@ -1303,7 +1336,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
     @Override
     public String toString()
     {
-        return getClass().getSimpleName() + "[" + options.socketId + "]";
+        return getClass().getSimpleName() + "[" + getTid() + "]";
     }
 
     public final SelectableChannel getFD()
