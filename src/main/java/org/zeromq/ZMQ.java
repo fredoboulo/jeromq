@@ -3384,13 +3384,20 @@ public class ZMQ
     {
         private final int    event;
         private final Object value;
-        private final String address;
+        private final String local;
+        private final String remote;
 
-        public Event(int event, Object value, String address)
+        public Event(int event, Object value, String local)
+        {
+            this(event, value, local, null);
+        }
+
+        public Event(int event, Object value, String local, String remote)
         {
             this.event = event;
             this.value = value;
-            this.address = address;
+            this.local = local;
+            this.remote = remote;
         }
 
         public int getEvent()
@@ -3403,9 +3410,20 @@ public class ZMQ
             return value;
         }
 
+        @Deprecated
         public String getAddress()
         {
-            return address;
+            return getLocalAddress();
+        }
+
+        public String getLocalAddress()
+        {
+            return local;
+        }
+
+        public String getRemoteAddress()
+        {
+            return remote;
         }
 
         /**
@@ -3417,8 +3435,8 @@ public class ZMQ
          */
         public static Event recv(Socket socket, int flags)
         {
-            zmq.ZMQ.Event e = zmq.ZMQ.Event.read(socket.base, flags);
-            return e != null ? new Event(e.event, e.arg, e.addr) : null;
+            zmq.ZMQ.Event evt = zmq.ZMQ.Event.read(socket.base, flags);
+            return evt == null ? null : new Event(evt.event, evt.arg, evt.localAddress, evt.remoteAddress);
         }
 
         /**

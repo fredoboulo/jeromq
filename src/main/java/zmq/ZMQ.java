@@ -1,12 +1,11 @@
 package zmq;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
@@ -15,6 +14,7 @@ import java.util.concurrent.locks.LockSupport;
 import zmq.io.Metadata;
 import zmq.poll.PollItem;
 import zmq.util.Clock;
+import zmq.util.Wire;
 
 public class ZMQ
 {
@@ -197,68 +197,119 @@ public class ZMQ
         private static final int VALUE_CHANNEL = 2;
 
         public final int    event;
+        @Deprecated
         public final String addr;
+        public final String localAddress;
+        public final String remoteAddress;
         public final Object arg;
         private final int   flag;
 
         public Event(int event, String addr, Object arg)
         {
+            this(event, addr, arg, null);
+        }
+
+        public Event(int event, String local, Object arg, String remote)
+        {
             this.event = event;
-            this.addr = addr;
+            this.localAddress = local;
+            this.addr = local;
             this.arg = arg;
             if (arg instanceof Integer) {
                 flag = VALUE_INTEGER;
             }
             else if (arg instanceof SelectableChannel) {
+                assert (remote == null);
+                if (arg instanceof SocketChannel) {
+                    SocketChannel ch = (SocketChannel) arg;
+                    try {
+                        remote = ch.getRemoteAddress().toString();
+                    }
+                    catch (IOException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                }
+                flag = VALUE_CHANNEL;
+            }
+            else if (arg instanceof String) {
+                assert (remote == null);
+                remote = (String) arg;
                 flag = VALUE_CHANNEL;
             }
             else {
                 flag = 0;
             }
+            this.remoteAddress = remote;
         }
 
         public boolean write(SocketBase s)
         {
-            int size = 4 + 1 + addr.length() + 1; // event + len(addr) + addr + flag
+            //  Send event in first frame
+            Msg.Builder builder = new Msg.Builder();
+            Wire.putUInt32(builder, event);
+            Wire.putUInt32(builder, flag);
+            String remote = remoteAddress;
+            if (flag == VALUE_CHANNEL) {
+                if (arg instanceof SocketChannel) {
+                    SocketChannel channel = (SocketChannel) arg;
+                    try {
+                        remote = channel.getRemoteAddress().toString();
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
             if (flag == VALUE_INTEGER) {
-                size += 4;
+                Wire.putUInt32(builder, (Integer) arg);
             }
 
-            ByteBuffer buffer = ByteBuffer.allocate(size).order(ByteOrder.BIG_ENDIAN);
-            buffer.putInt(event);
-            buffer.put((byte) addr.length());
-            buffer.put(addr.getBytes(CHARSET));
-            buffer.put((byte) flag);
-            if (flag == VALUE_INTEGER) {
-                buffer.putInt((Integer) arg);
-            }
-            buffer.flip();
+            boolean rc = s.send(builder.build(), ZMQ_SNDMORE);
 
-            Msg msg = new Msg(buffer);
-            return s.send(msg, 0);
+            //  Send address in second frame
+            Msg msg = new Msg(localAddress.getBytes(CHARSET));
+            rc &= s.send(msg, flag == VALUE_CHANNEL && remote != null ? ZMQ_SNDMORE : 0);
+
+            //  Send remote in third frame
+            if (remote != null) {
+                msg = new Msg(remote.getBytes(CHARSET));
+                rc &= s.send(msg, 0);
+            }
+
+            return rc;
         }
 
-        public static Event read(SocketBase s, int flags)
+        public static Event read(SocketBase socket, int flags)
         {
-            Msg msg = s.recv(flags);
+            Msg msg = socket.recv(flags);
             if (msg == null) {
                 return null;
             }
+            assert (msg.hasMore());
 
-            ByteBuffer buffer = msg.buf();
-
-            int event = buffer.getInt();
-            int len = buffer.get();
-            byte[] addr = new byte[len];
-            buffer.get(addr);
-            int flag = buffer.get();
+            int event = Wire.getUInt32(msg, 0);
+            int flag = Wire.getUInt32(msg, 4);
             Object arg = null;
-
             if (flag == VALUE_INTEGER) {
-                arg = buffer.getInt();
+                arg = Wire.getUInt32(msg, 8);
             }
 
-            return new Event(event, new String(addr, CHARSET), arg);
+            msg = socket.recv(flags);
+            if (msg == null) {
+                return null;
+            }
+            String local = new String(msg.data(), CHARSET);
+            String remote = null;
+            if (flag == VALUE_CHANNEL && msg.hasMore()) {
+                msg = socket.recv(flags);
+                if (msg == null) {
+                    return null;
+                }
+                remote = new String(msg.data(), CHARSET);
+            }
+
+            return new Event(event, local, arg, remote);
         }
 
         public static Event read(SocketBase s)

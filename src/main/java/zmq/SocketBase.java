@@ -3,6 +3,7 @@ package zmq;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SelectableChannel;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Collection;
 import java.util.HashSet;
@@ -1212,7 +1213,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         event(addr, zmtpVersion, ZMQ.ZMQ_EVENT_HANDSHAKE_PROTOCOL);
     }
 
-    public final void eventConnected(String addr, SelectableChannel ch)
+    public final void eventConnected(String addr, SocketChannel ch)
     {
         event(addr, ch, ZMQ.ZMQ_EVENT_CONNECTED);
     }
@@ -1237,9 +1238,9 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         }
     }
 
-    public final void eventListening(String addr, SelectableChannel ch)
+    public final void eventListening(String local, ServerSocketChannel ch)
     {
-        event(addr, ch, ZMQ.ZMQ_EVENT_LISTENING);
+        event(local, ch, ZMQ.ZMQ_EVENT_LISTENING);
     }
 
     public final void eventBindFailed(String addr, int errno)
@@ -1247,9 +1248,9 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         event(addr, errno, ZMQ.ZMQ_EVENT_BIND_FAILED);
     }
 
-    public final void eventAccepted(String addr, SelectableChannel ch)
+    public final void eventAccepted(String local, SocketChannel ch)
     {
-        event(addr, ch, ZMQ.ZMQ_EVENT_ACCEPTED);
+        event(local, ch, ZMQ.ZMQ_EVENT_ACCEPTED);
     }
 
     public final void eventAcceptFailed(String addr, int errno)
@@ -1257,9 +1258,9 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         event(addr, errno, ZMQ.ZMQ_EVENT_ACCEPT_FAILED);
     }
 
-    public final void eventClosed(String addr, SelectableChannel ch)
+    public final void eventClosed(String addr, String remote)
     {
-        event(addr, ch, ZMQ.ZMQ_EVENT_CLOSED);
+        event(addr, remote, ZMQ.ZMQ_EVENT_CLOSED);
     }
 
     public final void eventCloseFailed(String addr, int errno)
@@ -1267,9 +1268,9 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         event(addr, errno, ZMQ.ZMQ_EVENT_CLOSE_FAILED);
     }
 
-    public final void eventDisconnected(String addr, SelectableChannel ch)
+    public final void eventDisconnected(String local, SocketChannel ch)
     {
-        event(addr, ch, ZMQ.ZMQ_EVENT_DISCONNECTED);
+        event(local, ch, ZMQ.ZMQ_EVENT_DISCONNECTED);
     }
 
     private void event(String addr, Object arg, int event)

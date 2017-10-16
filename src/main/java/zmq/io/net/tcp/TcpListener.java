@@ -138,7 +138,7 @@ public class TcpListener extends Own implements IPollEvents
 
         try {
             fd.close();
-            socket.eventClosed(endpoint, fd);
+            socket.eventClosed(endpoint, endpoint);
         }
         catch (IOException e) {
             socket.eventCloseFailed(endpoint, ZError.exccode(e));

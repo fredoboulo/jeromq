@@ -352,8 +352,9 @@ public class TcpConnecter extends Own implements IPollEvents
     {
         assert (fd != null);
         try {
+            String remote = fd.getRemoteAddress().toString();
             fd.close();
-            socket.eventClosed(addr.toString(), fd);
+            socket.eventClosed(addr.toString(), remote);
         }
         catch (IOException e) {
             socket.eventCloseFailed(addr.toString(), ZError.exccode(e));
