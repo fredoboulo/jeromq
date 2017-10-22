@@ -453,6 +453,7 @@ public class SessionBase extends Own implements Pipe.IPipeEvents, IPollEvents
         if (zapPipe != null) {
             zapPipe.terminate(false);
         }
+        terminatingLatch.countDown();
     }
 
     @Override

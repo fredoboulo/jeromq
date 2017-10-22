@@ -678,7 +678,15 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
                     ep.pipe.terminate(true);
                 }
                 termChild(ep.endpoint);
+                try {
+                    ep.endpoint.terminatingLatch.await();
+                }
+                catch (InterruptedException e) {
+                    errno.set(ZError.EINTR);
+                    return false;
+                }
             }
+            processCommands(0, false);
         }
         return true;
 

@@ -2,6 +2,7 @@ package zmq;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 
 import zmq.io.IOThread;
@@ -16,6 +17,8 @@ public abstract class Own extends ZObject
     //  True if termination was already initiated. If so, we can destroy
     //  the object if there are no more child objects or pending term acks.
     private boolean terminating;
+
+    protected final CountDownLatch terminatingLatch = new CountDownLatch(1);
 
     //  Sequence number of the last command sent to this object.
     private final AtomicLong sendSeqnum;
@@ -211,6 +214,7 @@ public abstract class Own extends ZObject
         //  terminate immediately.
         terminating = true;
         checkTermAcks();
+        terminatingLatch.countDown();
     }
 
     //  Use following two functions to wait for arbitrary events before

@@ -4,7 +4,9 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -22,6 +24,7 @@ public class DealerDealerTest
         private final boolean       verbose;
         private final String        host;
         private final int           messagesCount;
+        private final int           reconnectAfter;
         private final Deque<String> queue;
 
         private int missed     = 0;
@@ -29,12 +32,16 @@ public class DealerDealerTest
         private int count      = 0;
         private int received   = 0;
 
-        private Client(Context context, boolean verbose, String host, int messagesCount, Deque<String> queue)
+        private final List<ZMQ.Socket> sockets = new ArrayList<>();
+
+        private Client(Context context, boolean verbose, String host, int messagesCount, int reconnectAfter,
+                Deque<String> queue)
         {
             this.context = context;
             this.verbose = verbose;
             this.host = host;
             this.messagesCount = messagesCount;
+            this.reconnectAfter = reconnectAfter;
             this.queue = queue;
         }
 
@@ -62,33 +69,52 @@ public class DealerDealerTest
                     System.out.println("Received " + received);
                 }
 
-                if (count % 10 == 0) {
+                if (count % reconnectAfter == 0) {
                     worker.disconnect(host);
                     reconnects++;
                     if (verbose) {
                         System.out.println("Reconnecting...");
                     }
-                    worker.close();
+                    sockets.add(worker);
                     worker = context.socket(SocketType.DEALER);
                     worker.connect(host);
                 }
 
-                if (count % 100 == 0) {
+                if (count % (messagesCount / 10) == 0) {
                     System.out.println(
                                        "Received: " + this.received + " missed: " + missed + " reconnects: "
                                                + reconnects);
+                    for (ZMQ.Socket socket : sockets) {
+                        socket.close();
+                    }
+                    sockets.clear();
                 }
             }
             worker.close();
+            for (ZMQ.Socket socket : sockets) {
+                socket.close();
+            }
+            sockets.clear();
         }
     }
 
     @Test
     @Ignore
+    public void testRepeated() throws InterruptedException, IOException
+    {
+        for (int idx = 0; idx < 100; idx++) {
+            System.out.println("+++++++++++ " + idx);
+            testIssue335();
+        }
+    }
+
+    @Test
     public void testIssue335() throws InterruptedException, IOException
     {
         final boolean verbose = false;
-        final int messagesCount = 1000;
+        final int messagesCount = 200;
+        final int reconnectAfter = 2;
+        final int sleep = 10;
 
         final ZMQ.Context context = ZMQ.context(1);
         final Deque<String> queue = new LinkedBlockingDeque<>();
@@ -110,13 +136,13 @@ public class DealerDealerTest
                         System.out.println("Send failed");
                     }
 
-                    zmq.ZMQ.msleep(10);
+                    zmq.ZMQ.msleep(sleep);
                 }
                 server.close();
             }
         };
 
-        final Client client = new Client(context, verbose, host, messagesCount, queue);
+        final Client client = new Client(context, verbose, host, messagesCount, reconnectAfter, queue);
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         executor.submit(server);
@@ -124,12 +150,12 @@ public class DealerDealerTest
 
         long start = System.currentTimeMillis();
         executor.shutdown();
-        executor.awaitTermination(30, TimeUnit.SECONDS);
+        executor.awaitTermination(messagesCount * sleep * 2, TimeUnit.MILLISECONDS);
         long end = System.currentTimeMillis();
         System.out.println("Done in  " + (end - start) + " millis.");
 
         assertThat(client.missed, is(0));
-        assertThat(client.reconnects, is(messagesCount / 10));
+        assertThat(client.reconnects, is(messagesCount / reconnectAfter));
         assertThat(client.count, is(client.received));
 
         context.close();
