@@ -30,10 +30,10 @@ public class Pipe extends ZObject
     private boolean outActive;
 
     //  High watermark for the outbound pipe.
-    private int hwm;
+    private long hwm;
 
     //  Low watermark for the inbound pipe.
-    private int lwm;
+    private long lwm;
 
     //  Number of messages read and written so far.
     private long msgsRead;
@@ -90,15 +90,15 @@ public class Pipe extends ZObject
 
     //  Constructor is private. Pipe can only be created using
     //  pipepair function.
-    private Pipe(ZObject parent, YPipeBase<Msg> inpipe, YPipeBase<Msg> outpipe, int inhwm, int outhwm, boolean conflate)
+    private Pipe(ZObject parent, YPipeBase<Msg> inpipe, YPipeBase<Msg> outpipe, long inhwm, long outhwm,
+            boolean conflate)
     {
         super(parent);
         this.inpipe = inpipe;
         this.outpipe = outpipe;
         inActive = true;
         outActive = true;
-        hwm = outhwm;
-        lwm = computeLwm(inhwm);
+        setHwms(inhwm, outhwm);
         msgsRead = 0;
         msgsWritten = 0;
         peersMsgsRead = 0;
@@ -118,7 +118,7 @@ public class Pipe extends ZObject
     //  Conflate specifies how the pipe behaves when the peer terminates. If true
     //  pipe receives all the pending messages before terminating, otherwise it
     //  terminates straight away.
-    public static Pipe[] pair(ZObject[] parents, int[] hwms, boolean[] conflates)
+    public static Pipe[] pair(ZObject[] parents, long[] hwms, boolean[] conflates)
     {
         Pipe[] pipes = new Pipe[2];
         //   Creates two pipe objects. These objects are connected by two ypipes,
@@ -505,7 +505,7 @@ public class Pipe extends ZObject
     }
 
     //  Computes appropriate low watermark from the given high watermark.
-    private static int computeLwm(int hwm)
+    private static long computeLwm(long hwm)
     {
         //  Compute the low water mark. Following point should be taken
         //  into consideration:
@@ -573,7 +573,7 @@ public class Pipe extends ZObject
         sendHiccup(peer, inpipe);
     }
 
-    public void setHwms(int inhwm, int outhwm)
+    public void setHwms(long inhwm, long outhwm)
     {
         lwm = computeLwm(inhwm);
         hwm = outhwm;

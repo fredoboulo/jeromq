@@ -19,8 +19,8 @@ import zmq.util.Z85;
 public class Options
 {
     //  High-water marks for message pipes.
-    public int sendHwm;
-    public int recvHwm;
+    public long sendHwm;
+    public long recvHwm;
 
     //  I/O thread affinity.
     public long affinity;
@@ -33,13 +33,13 @@ public class Options
     String lastEndpoint;
 
     //  Maximum tranfer rate [kb/s]. Default 100kb/s.
-    int rate;
+    long rate;
 
     //  Reliability time interval [ms]. Default 10 seconds.
-    int recoveryIvl;
+    long recoveryIvl;
 
     // Sets the time-to-live field in every multicast packet sent.
-    int multicastHops;
+    long multicastHops;
 
     // SO_SNDBUF and SO_RCVBUF to be passed to underlying transport sockets.
     public int sndbuf;
@@ -52,14 +52,14 @@ public class Options
     public int type;
 
     //  Linger time, in milliseconds.
-    public int linger;
+    public long linger;
 
     //  Minimum interval between attempts to reconnect, in milliseconds.
     //  Default 100ms
-    public int reconnectIvl;
+    public long reconnectIvl;
     //  Maximum interval between attempts to reconnect, in milliseconds.
     //  Default 0 (unused)
-    public int reconnectIvlMax;
+    public long reconnectIvlMax;
 
     //  Maximum backlog for pending connections.
     public int backlog;
@@ -92,10 +92,10 @@ public class Options
 
     //  TCP keep-alive settings.
     //  Defaults to -1 = do not change socket options
-    public int tcpKeepAlive;
-    public int tcpKeepAliveCnt;
-    public int tcpKeepAliveIdle;
-    public int tcpKeepAliveIntvl;
+    public long tcpKeepAlive;
+    public long tcpKeepAliveCnt;
+    public long tcpKeepAliveIdle;
+    public long tcpKeepAliveIntvl;
 
     // TCP accept() filters
     //typedef std::vector <tcp_address_mask_t> tcp_accept_filters_t;
@@ -143,7 +143,7 @@ public class Options
 
     //  If connection handshake is not done after this many milliseconds,
     //  close socket.  Default is 30 secs.  0 means no handshake timeout.
-    public int handshakeIvl;
+    public long handshakeIvl;
 
     //  If remote peer receives a PING message and doesn't receive another
     //  message within the ttl value, it should close the connection
@@ -222,21 +222,21 @@ public class Options
         final ValueReference<Boolean> result = new ValueReference<>(false);
         switch (option) {
         case ZMQ.ZMQ_SNDHWM:
-            sendHwm = (Integer) optval;
+            sendHwm = parseLong(optval);
             if (sendHwm < 0) {
                 throw new IllegalArgumentException("sendHwm " + optval);
             }
             return true;
 
         case ZMQ.ZMQ_RCVHWM:
-            recvHwm = (Integer) optval;
+            recvHwm = parseLong(optval);
             if (recvHwm < 0) {
                 throw new IllegalArgumentException("recvHwm " + optval);
             }
             return true;
 
         case ZMQ.ZMQ_AFFINITY:
-            affinity = (Long) optval;
+            affinity = parseLong(optval);
             return true;
 
         case ZMQ.ZMQ_IDENTITY:
@@ -250,31 +250,31 @@ public class Options
             return true;
 
         case ZMQ.ZMQ_RATE:
-            rate = (Integer) optval;
+            rate = parseLong(optval);
             return true;
 
         case ZMQ.ZMQ_RECOVERY_IVL:
-            recoveryIvl = (Integer) optval;
+            recoveryIvl = parseLong(optval);
             return true;
 
         case ZMQ.ZMQ_SNDBUF:
-            sndbuf = (Integer) optval;
+            sndbuf = ((Number) optval).intValue();
             return true;
 
         case ZMQ.ZMQ_RCVBUF:
-            rcvbuf = (Integer) optval;
+            rcvbuf = ((Number) optval).intValue();
             return true;
 
         case ZMQ.ZMQ_TOS:
-            tos = (Integer) optval;
+            tos = ((Number) optval).intValue();
             return true;
 
         case ZMQ.ZMQ_LINGER:
-            linger = (Integer) optval;
+            linger = parseLong(optval);
             return true;
 
         case ZMQ.ZMQ_RECONNECT_IVL:
-            reconnectIvl = (Integer) optval;
+            reconnectIvl = parseLong(optval);
 
             if (reconnectIvl < -1) {
                 throw new IllegalArgumentException("reconnectIvl " + optval);
@@ -283,7 +283,7 @@ public class Options
             return true;
 
         case ZMQ.ZMQ_RECONNECT_IVL_MAX:
-            reconnectIvlMax = (Integer) optval;
+            reconnectIvlMax = parseLong(optval);
 
             if (reconnectIvlMax < 0) {
                 throw new IllegalArgumentException("reconnectIvlMax " + optval);
@@ -292,7 +292,7 @@ public class Options
             return true;
 
         case ZMQ.ZMQ_BACKLOG:
-            backlog = (Integer) optval;
+            backlog = ((Number) optval).intValue();
             return true;
 
         case ZMQ.ZMQ_MAXMSGSIZE:
@@ -300,15 +300,15 @@ public class Options
             return true;
 
         case ZMQ.ZMQ_MULTICAST_HOPS:
-            multicastHops = (Integer) optval;
+            multicastHops = parseLong(optval);
             return true;
 
         case ZMQ.ZMQ_RCVTIMEO:
-            recvTimeout = (Integer) optval;
+            recvTimeout = ((Number) optval).intValue();
             return true;
 
         case ZMQ.ZMQ_SNDTIMEO:
-            sendTimeout = (Integer) optval;
+            sendTimeout = ((Number) optval).intValue();
             return true;
 
         /*  Deprecated in favor of ZMQ_IPV6  */
@@ -325,7 +325,7 @@ public class Options
             return true;
 
         case ZMQ.ZMQ_TCP_KEEPALIVE:
-            tcpKeepAlive = ((Number) optval).intValue();
+            tcpKeepAlive = parseLong(optval);
             if (tcpKeepAlive != -1 && tcpKeepAlive != 0 && tcpKeepAlive != 1) {
                 throw new IllegalArgumentException("tcpKeepAlive only accepts one of -1,0,1 " + optval);
             }
@@ -438,7 +438,7 @@ public class Options
             return true;
 
         case ZMQ.ZMQ_HANDSHAKE_IVL:
-            handshakeIvl = (Integer) optval;
+            handshakeIvl = parseLong(optval);
             if (handshakeIvl < 0) {
                 throw new IllegalArgumentException("handshakeIvl only accept positive values " + optval);
             }
@@ -515,13 +515,18 @@ public class Options
             return false;
 
         case ZMQ.ZMQ_MSG_ALLOCATION_HEAP_THRESHOLD:
-            Integer allocationHeapThreshold = (Integer) optval;
+            long allocationHeapThreshold = parseLong(optval);
             allocator = new MsgAllocatorThreshold(allocationHeapThreshold);
             return true;
 
         default:
             throw new IllegalArgumentException("Unknown Option " + option);
         }
+    }
+
+    private long parseLong(Object optval)
+    {
+        return ((Number) optval).longValue();
     }
 
     private MsgAllocator allocator(Class<?> clazz)

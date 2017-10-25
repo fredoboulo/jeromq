@@ -18,7 +18,6 @@ import zmq.Msg;
 import zmq.SocketBase;
 import zmq.ZError;
 import zmq.ZMQ;
-import zmq.ZMQ.Event;
 import zmq.util.Utils;
 
 public abstract class AbstractProtocolVersion
@@ -93,7 +92,7 @@ public abstract class AbstractProtocolVersion
 
         monitor.join();
 
-        final Event event = monitor.events[0];
+        final ZMQ.Event event = monitor.events[0];
         assertThat(event, notNullValue());
         assertThat(event.event, is(ZMQ.ZMQ_EVENT_HANDSHAKE_PROTOCOL));
         assertThat((Integer) event.arg, is(version));

@@ -8,14 +8,14 @@ public class MsgAllocatorThreshold implements MsgAllocator
     private static final MsgAllocator direct = new MsgAllocatorDirect();
     private static final MsgAllocator heap   = new MsgAllocatorHeap();
 
-    public final int threshold;
+    public final long threshold;
 
     public MsgAllocatorThreshold()
     {
         this(Config.MSG_ALLOCATION_HEAP_THRESHOLD.getValue());
     }
 
-    public MsgAllocatorThreshold(int threshold)
+    public MsgAllocatorThreshold(long threshold)
     {
         this.threshold = threshold;
     }

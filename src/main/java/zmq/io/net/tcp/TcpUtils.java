@@ -51,8 +51,8 @@ public class TcpUtils
         });
     }
 
-    public static void tuneTcpKeepalives(SocketChannel channel, int tcpKeepAlive, int tcpKeepAliveCnt,
-                                         int tcpKeepAliveIdle, int tcpKeepAliveIntvl)
+    public static void tuneTcpKeepalives(SocketChannel channel, long tcpKeepAlive, long tcpKeepAliveCnt,
+                                         long tcpKeepAliveIdle, long tcpKeepAliveIntvl)
             throws IOException
     {
         final boolean keepAlive = tcpKeepAlive == 1;

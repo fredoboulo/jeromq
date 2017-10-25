@@ -37,7 +37,7 @@ public class InprocDisconnectTest
         ZMQ.setSocketOption(subSocket, ZMQ.ZMQ_SUBSCRIBE, "foo".getBytes());
         ZMQ.bind(pubSocket, "inproc://someInProcDescriptor");
 
-        int more;
+        long more;
         int iteration = 0;
 
         while (true) {

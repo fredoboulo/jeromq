@@ -9,6 +9,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
+import zmq.api.AMsg;
+import zmq.api.ASocket;
 import zmq.io.IOThread;
 import zmq.io.SessionBase;
 import zmq.io.net.Address;
@@ -25,7 +27,7 @@ import zmq.util.Blob;
 import zmq.util.Clock;
 import zmq.util.MultiMap;
 
-public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeEvents
+public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeEvents, ASocket
 {
     private static class EndpointPipe
     {
@@ -109,8 +111,8 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         monitorEvents = 0;
 
         options.socketId = sid;
-        options.ipv6 = parent.get(ZMQ.ZMQ_IPV6) != 0;
-        options.linger = parent.get(ZMQ.ZMQ_BLOCKY) != 0 ? -1 : 0;
+        options.ipv6 = parent.getOption(ZMQ.ZMQ_IPV6) != 0;
+        options.linger = parent.getOption(ZMQ.ZMQ_BLOCKY) != 0 ? -1 : 0;
 
         endpoints = new MultiMap<>();
         inprocs = new MultiMap<>();
@@ -214,6 +216,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         }
     }
 
+    @Override
     public final boolean setSocketOpt(int option, Object optval)
     {
         if (ctxTerminated) {
@@ -236,7 +239,8 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         return rc;
     }
 
-    public final int getSocketOpt(int option)
+    @Override
+    public final long getSocketOpt(int option)
     {
         if (ctxTerminated) {
             errno.set(ZError.ETERM);
@@ -263,8 +267,8 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             return val;
         }
         Object val = options.getSocketOpt(option);
-        if (val instanceof Integer) {
-            return (Integer) val;
+        if (val instanceof Number) {
+            return ((Number) val).longValue();
         }
         if (val instanceof Boolean) {
             return (Boolean) val ? 1 : 0;
@@ -272,6 +276,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         throw new IllegalArgumentException(val + " is neither an integer or a boolean for option " + option);
     }
 
+    @Override
     public final Object getSocketOptx(int option)
     {
         if (ctxTerminated) {
@@ -307,6 +312,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         return options.getSocketOpt(option);
     }
 
+    @Override
     public final boolean bind(final String addr)
     {
         if (ctxTerminated) {
@@ -409,6 +415,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         throw new IllegalArgumentException(addr);
     }
 
+    @Override
     public final boolean connect(String addr)
     {
         if (ctxTerminated) {
@@ -440,14 +447,14 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             Ctx.Endpoint peer = findEndpoint(addr);
             // The total HWM for an inproc connection should be the sum of
             // the binder's HWM and the connector's HWM.
-            int sndhwm = 0;
+            long sndhwm = 0;
             if (peer.socket == null) {
                 sndhwm = options.sendHwm;
             }
             else if (options.sendHwm != 0 && peer.options.recvHwm != 0) {
                 sndhwm = options.sendHwm + peer.options.recvHwm;
             }
-            int rcvhwm = 0;
+            long rcvhwm = 0;
             if (peer.socket == null) {
                 rcvhwm = options.recvHwm;
             }
@@ -461,7 +468,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             boolean conflate = options.conflate && (options.type == ZMQ.ZMQ_DEALER || options.type == ZMQ.ZMQ_PULL
                     || options.type == ZMQ.ZMQ_PUSH || options.type == ZMQ.ZMQ_PUB || options.type == ZMQ.ZMQ_SUB);
 
-            int[] hwms = { conflate ? -1 : sndhwm, conflate ? -1 : rcvhwm };
+            long[] hwms = { conflate ? -1 : sndhwm, conflate ? -1 : rcvhwm };
             boolean[] conflates = { conflate, conflate };
             Pipe[] pipes = Pipe.pair(parents, hwms, conflates);
 
@@ -565,7 +572,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             boolean conflate = options.conflate && (options.type == ZMQ.ZMQ_DEALER || options.type == ZMQ.ZMQ_PULL
                     || options.type == ZMQ.ZMQ_PUSH || options.type == ZMQ.ZMQ_PUB || options.type == ZMQ.ZMQ_SUB);
 
-            int[] hwms = { conflate ? -1 : options.sendHwm, conflate ? -1 : options.recvHwm };
+            long[] hwms = { conflate ? -1 : options.sendHwm, conflate ? -1 : options.recvHwm };
             boolean[] conflates = { conflate, conflate };
             Pipe[] pipes = Pipe.pair(parents, hwms, conflates);
 
@@ -591,6 +598,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         endpoints.insert(addr, new EndpointPipe(endpoint, pipe));
     }
 
+    @Override
     public final boolean termEndpoint(String addr)
     {
         //  Check whether the library haven't been shut down yet.
@@ -678,6 +686,13 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
     }
 
+    @Override
+    public final boolean send(AMsg msg, int flags)
+    {
+        assert (msg instanceof Msg);
+        return send((Msg) msg, flags);
+    }
+
     public final boolean send(Msg msg, int flags)
     {
         //  Check whether the library haven't been shut down yet.
@@ -727,7 +742,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
         //  Compute the time when the timeout should occur.
         //  If the timeout is infinite, don't care.
-        int timeout = options.sendTimeout;
+        long timeout = options.sendTimeout;
         long end = timeout < 0 ? 0 : (Clock.nowMS() + timeout);
 
         //  Oops, we couldn't send the message. Wait for the next
@@ -758,6 +773,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         return true;
     }
 
+    @Override
     public final Msg recv(int flags)
     {
         //  Check whether the library haven't been shut down yet.
@@ -818,7 +834,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
         //  Compute the time when the timeout should occur.
         //  If the timeout is infinite, don't care.
-        int timeout = options.recvTimeout;
+        long timeout = options.recvTimeout;
         long end = timeout < 0 ? 0 : (Clock.nowMS() + timeout);
 
         //  In blocking scenario, commands are processed over and over again until
@@ -854,6 +870,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
     }
 
+    @Override
     public final void close()
     {
         //  Mark the socket as dead
@@ -897,7 +914,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
     //  returns only after at least one command was processed.
     //  If throttle argument is true, commands are processed at most once
     //  in a predefined time period.
-    private boolean processCommands(int timeout, boolean throttle)
+    private boolean processCommands(long timeout, boolean throttle)
     {
         Command cmd;
         if (timeout != 0) {
@@ -976,7 +993,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
     }
 
     @Override
-    protected final void processTerm(int linger)
+    protected final void processTerm(long linger)
     {
         //  Unregister all inproc endpoints associated with this socket.
         //  Doing this we make sure that no new pipes from other sockets (inproc)
@@ -1146,6 +1163,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         rcvmore = msg.hasMore();
     }
 
+    @Override
     public final boolean monitor(final String addr, int events)
     {
         try {
@@ -1222,7 +1240,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         event(addr, errno, ZMQ.ZMQ_EVENT_CONNECT_DELAYED);
     }
 
-    public final void eventConnectRetried(String addr, int interval)
+    public final void eventConnectRetried(String addr, long interval)
     {
         try {
             monitorSync.lock();
@@ -1328,6 +1346,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         return Sockets.name(options.type);
     }
 
+    @Override
     public final int errno()
     {
         return errno.get();

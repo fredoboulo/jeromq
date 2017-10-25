@@ -11,25 +11,11 @@ import java.util.Set;
 import zmq.Msg;
 import zmq.ZError;
 import zmq.ZMQ;
+import zmq.api.AMetadata;
 import zmq.util.Wire;
 
-public class Metadata
+public class Metadata implements AMetadata
 {
-    /**
-     * Call backs during parsing process
-     */
-    public interface ParseListener
-    {
-        /**
-         * Called when a property has been parsed.
-         * @param name the name of the property.
-         * @param value the value of the property.
-         * @param valueAsString the value in a string representation.
-         * @return 0 to continue the parsing process, any other value to interrupt it.
-         */
-        int parsed(String name, byte[] value, String valueAsString);
-    }
-
     public static final String IDENTITY = "Identity";
 
     public static final String SOCKET_TYPE = "Socket-Type";
@@ -51,6 +37,7 @@ public class Metadata
         this.dictionary.putAll(dictionary);
     }
 
+    @Override
     public final Set<String> keySet()
     {
         return dictionary.stringPropertyNames();
@@ -63,11 +50,13 @@ public class Metadata
 
     //  Returns property value or NULL if
     //  property is not found.
+    @Override
     public final String get(String key)
     {
         return dictionary.getProperty(key);
     }
 
+    @Override
     public final void set(String key, String value)
     {
         dictionary.setProperty(key, value);
@@ -111,6 +100,7 @@ public class Metadata
         return "Metadata=" + dictionary;
     }
 
+    @Override
     public final byte[] bytes()
     {
         ByteArrayOutputStream stream = new ByteArrayOutputStream(size());
@@ -164,6 +154,7 @@ public class Metadata
         return read(msg.buf(), offset, listener);
     }
 
+    @Override
     public final int read(ByteBuffer msg, int offset, ParseListener listener)
     {
         ByteBuffer data = msg.duplicate();

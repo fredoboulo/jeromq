@@ -259,8 +259,8 @@ public class ReqSpecTest extends AbstractSpecTest
 
         Msg peerId = msg;
 
-        int more = ZMQ.getSocketOption(router, ZMQ.ZMQ_RCVMORE);
-        assertThat(more, is(1));
+        long more = ZMQ.getSocketOption(router, ZMQ.ZMQ_RCVMORE);
+        assertThat(more, is(1L));
 
         // Receive the rest.
         recvSeq(router, null, "ABC", "DEF");

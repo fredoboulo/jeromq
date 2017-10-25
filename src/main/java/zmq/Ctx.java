@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import zmq.api.AContext;
 import zmq.io.IOThread;
 import zmq.pipe.Pipe;
 import zmq.socket.Sockets;
@@ -23,7 +24,7 @@ import zmq.util.Errno;
 //Context object encapsulates all the global state associated with
 //  the library.
 
-public class Ctx
+public class Ctx implements AContext
 {
     private static final int WAIT_FOREVER = -1;
 
@@ -204,7 +205,8 @@ public class Ctx
     //  Returns false if object is not a context.
     //
     //  This will also return false if terminate() has been called.
-    public boolean checkTag()
+    @Override
+    public boolean isAlive()
     {
         return tag == 0xabadcafe;
     }
@@ -214,6 +216,7 @@ public class Ctx
     //  down. If there are open sockets still, the deallocation happens
     //  after the last one is closed.
 
+    @Override
     public void terminate()
     {
         slotSync.lock();
@@ -300,7 +303,8 @@ public class Ctx
         }
     }
 
-    public boolean set(int option, int optval)
+    @Override
+    public boolean setOption(int option, int optval)
     {
         if (option == ZMQ.ZMQ_MAX_SOCKETS && optval >= 1) {
             optSync.lock();
@@ -344,7 +348,8 @@ public class Ctx
         return true;
     }
 
-    public int get(int option)
+    @Override
+    public int getOption(int option)
     {
         int rc;
         if (option == ZMQ.ZMQ_MAX_SOCKETS) {
@@ -365,6 +370,7 @@ public class Ctx
         return rc;
     }
 
+    @Override
     public SocketBase createSocket(int type)
     {
         SocketBase s = null;
@@ -476,6 +482,7 @@ public class Ctx
     }
 
     // Creates a Selector that will be closed when the context is destroyed.
+    @Override
     public Selector createSelector()
     {
         selectorSync.lock();
@@ -493,6 +500,7 @@ public class Ctx
         }
     }
 
+    @Override
     public boolean closeSelector(Selector selector)
     {
         selectorSync.lock();
@@ -673,11 +681,11 @@ public class Ctx
             assert (msg != null);
         }
 
-        int sndhwm = 0;
+        long sndhwm = 0;
         if (pendingConnection.endpoint.options.sendHwm != 0 && bindOptions.recvHwm != 0) {
             sndhwm = pendingConnection.endpoint.options.sendHwm + bindOptions.recvHwm;
         }
-        int rcvhwm = 0;
+        long rcvhwm = 0;
         if (pendingConnection.endpoint.options.recvHwm != 0 && bindOptions.sendHwm != 0) {
             rcvhwm = pendingConnection.endpoint.options.recvHwm + bindOptions.sendHwm;
         }
@@ -687,7 +695,7 @@ public class Ctx
                         || pendingConnection.endpoint.options.type == ZMQ.ZMQ_PUSH
                         || pendingConnection.endpoint.options.type == ZMQ.ZMQ_PUB
                         || pendingConnection.endpoint.options.type == ZMQ.ZMQ_SUB);
-        int[] hwms = { conflate ? -1 : sndhwm, conflate ? -1 : rcvhwm };
+        long[] hwms = { conflate ? -1 : sndhwm, conflate ? -1 : rcvhwm };
         pendingConnection.connectPipe.setHwms(hwms[1], hwms[0]);
         pendingConnection.bindPipe.setHwms(hwms[0], hwms[1]);
 

@@ -67,7 +67,7 @@ public class TcpListener extends Own implements IPollEvents
     }
 
     @Override
-    protected void processTerm(int linger)
+    protected void processTerm(long linger)
     {
         ioObject.removeHandle(handle);
         handle = null;

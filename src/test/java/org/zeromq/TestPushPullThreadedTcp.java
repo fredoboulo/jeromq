@@ -21,10 +21,10 @@ public class TestPushPullThreadedTcp
 {
     private class Worker implements Runnable
     {
-        private final int    count;
-        private final AtomicBoolean  finished = new AtomicBoolean();
-        private int          idx;
-        private final Socket receiver;
+        private final int           count;
+        private final AtomicBoolean finished = new AtomicBoolean();
+        private int                 idx;
+        private final Socket        receiver;
 
         public Worker(Socket receiver, int count)
         {
@@ -76,7 +76,7 @@ public class TestPushPullThreadedTcp
         }
     }
 
-//    @Test
+    //    @Test
     public void testRepeated() throws Exception
     {
         for (int idx = 0; idx < 2000; ++idx) {
@@ -132,7 +132,7 @@ public class TestPushPullThreadedTcp
         threadPool.submit(client);
 
         threadPool.shutdown();
-        threadPool.awaitTermination(10, TimeUnit.SECONDS);
+        threadPool.awaitTermination(100000, TimeUnit.SECONDS);
         long end = System.currentTimeMillis();
         System.out.println("Worker received " + worker.idx + " messages");
         assertThat("Unable to send messages", client.finished.get(), is(true));

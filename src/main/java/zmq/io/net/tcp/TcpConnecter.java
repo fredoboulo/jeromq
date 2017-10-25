@@ -44,7 +44,7 @@ public class TcpConnecter extends Own implements IPollEvents
     private final SessionBase session;
 
     //  Current reconnect ivl, updated for backoff strategy
-    private int currentReconnectIvl;
+    private long currentReconnectIvl;
 
     // String representation of endpoint to connect to
     private final String endpoint;
@@ -93,7 +93,7 @@ public class TcpConnecter extends Own implements IPollEvents
     }
 
     @Override
-    protected void processTerm(int linger)
+    protected void processTerm(long linger)
     {
         if (timerStarted) {
             ioObject.cancelTimer(RECONNECT_TIMER_ID);
@@ -204,7 +204,7 @@ public class TcpConnecter extends Own implements IPollEvents
     //  Internal function to add a reconnect timer
     private void addReconnectTimer()
     {
-        int rcIvl = getNewReconnectIvl();
+        long rcIvl = getNewReconnectIvl();
         ioObject.addTimer(rcIvl, RECONNECT_TIMER_ID);
 
         // resolve address again to take into account other addresses
@@ -225,10 +225,10 @@ public class TcpConnecter extends Own implements IPollEvents
     //  Internal function to return a reconnect backoff delay.
     //  Will modify the currentReconnectIvl used for next call
     //  Returns the currently used interval
-    private int getNewReconnectIvl()
+    private long getNewReconnectIvl()
     {
         //  The new interval is the current interval + random value.
-        int interval = currentReconnectIvl + (Utils.randomInt() % options.reconnectIvl);
+        long interval = currentReconnectIvl + (Utils.randomInt() % options.reconnectIvl);
 
         //  Only change the current reconnect interval  if the maximum reconnect
         //  interval was set and if it's larger than the reconnect interval.

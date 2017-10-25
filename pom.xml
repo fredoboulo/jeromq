@@ -31,6 +31,11 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <dependencies>
+  	<dependency>
+	  <groupId>org.zeromq</groupId>
+	  <artifactId>zeromq-java-api</artifactId>
+	  <version>0.0.1-SNAPSHOT</version>
+  	</dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>

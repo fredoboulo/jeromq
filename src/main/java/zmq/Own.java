@@ -195,7 +195,7 @@ public abstract class Own extends ZObject
     //  be intercepted by the derived class. This is useful to add custom
     //  steps to the beginning of the termination process.
     @Override
-    protected void processTerm(int linger)
+    protected void processTerm(long linger)
     {
         //  Double termination should never happen.
         assert (!terminating);

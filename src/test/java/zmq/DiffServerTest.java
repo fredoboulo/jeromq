@@ -27,7 +27,7 @@ public class DiffServerTest
         boolean rc = ZMQ.bind(bind, host);
         assert (rc);
 
-        int option = ZMQ.getSocketOption(bind, ZMQ.ZMQ_TOS);
+        long option = ZMQ.getSocketOption(bind, ZMQ.ZMQ_TOS);
         Assert.assertEquals(tos, option);
 
         SocketBase connect = ZMQ.socket(ctx, ZMQ.ZMQ_PAIR);

@@ -106,8 +106,8 @@ public class ProxyTest
                         //  Check that message is still the same
                         assertThat(payload.startsWith(identity + " Request #"), is(true));
 
-                        int more = ZMQ.getSocketOption(client, ZMQ.ZMQ_RCVMORE);
-                        assertThat(more, is(0));
+                        long more = ZMQ.getSocketOption(client, ZMQ.ZMQ_RCVMORE);
+                        assertThat(more, is(0L));
                     }
                     if (items[1].isReadable()) {
                         msg = ZMQ.recv(control, 0);

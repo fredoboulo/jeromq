@@ -53,7 +53,7 @@ public class SocksConnecter extends TcpConnecter
     }
 
     @Override
-    protected void processTerm(int linger)
+    protected void processTerm(long linger)
     {
         switch (status) {
         case UNPLUGGED:

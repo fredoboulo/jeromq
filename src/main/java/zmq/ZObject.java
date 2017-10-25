@@ -96,7 +96,7 @@ public abstract class ZObject
             break;
 
         case TERM:
-            processTerm((Integer) cmd.arg);
+            processTerm((Long) cmd.arg);
             break;
 
         case TERM_ACK:
@@ -258,7 +258,7 @@ public abstract class ZObject
         sendCommand(cmd);
     }
 
-    protected final void sendTerm(Own destination, int linger)
+    protected final void sendTerm(Own destination, long linger)
     {
         Command cmd = new Command(destination, Command.Type.TERM, linger);
         sendCommand(cmd);
@@ -349,7 +349,7 @@ public abstract class ZObject
         throw new UnsupportedOperationException();
     }
 
-    protected void processTerm(int linger)
+    protected void processTerm(long linger)
     {
         throw new UnsupportedOperationException();
     }

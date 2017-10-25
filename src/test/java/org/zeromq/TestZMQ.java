@@ -17,9 +17,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.zeromq.ZMQ.Context;
 import org.zeromq.ZMQ.Socket;
-import org.zeromq.ZMQ.Socket.Mechanism;
 
 import zmq.ZError;
+import zmq.api.AMechanism;
 import zmq.msg.MsgAllocator;
 import zmq.msg.MsgAllocatorDirect;
 import zmq.util.Errno;
@@ -229,8 +229,8 @@ public class TestZMQ
 
         boolean set = socket.setBacklog(42L);
         assertThat(set, is(true));
-        int rc = socket.getBacklog();
-        assertThat(rc, is(42));
+        long rc = socket.getBacklog();
+        assertThat(rc, is(42L));
 
         socket.close();
     }
@@ -287,8 +287,8 @@ public class TestZMQ
         server = socket.isAsServerCurve();
         assertThat(server, is(true));
 
-        Mechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(Mechanism.CURVE));
+        AMechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(AMechanism.CURVE));
 
         socket.close();
     }
@@ -311,8 +311,8 @@ public class TestZMQ
         boolean server = socket.getCurveServer();
         assertThat(server, is(false));
 
-        Mechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(Mechanism.CURVE));
+        AMechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(AMechanism.CURVE));
 
         socket.close();
     }
@@ -323,8 +323,8 @@ public class TestZMQ
         final Socket socket = ctx.socket(ZMQ.REQ);
         assertThat(socket, notNullValue());
 
-        Mechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(Mechanism.NULL));
+        AMechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(AMechanism.NULL));
 
         byte[] key = new byte[32];
         Arrays.fill(key, (byte) 0x2);
@@ -339,7 +339,7 @@ public class TestZMQ
         assertThat(server, is(false));
 
         mechanism = socket.getMechanism();
-        assertThat(mechanism, is(Mechanism.CURVE));
+        assertThat(mechanism, is(AMechanism.CURVE));
         socket.close();
     }
 
@@ -361,8 +361,8 @@ public class TestZMQ
         boolean server = socket.getCurveServer();
         assertThat(server, is(false));
 
-        Mechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(Mechanism.CURVE));
+        AMechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(AMechanism.CURVE));
 
         socket.close();
     }
@@ -375,8 +375,8 @@ public class TestZMQ
 
         boolean set = socket.setHandshakeIvl(42);
         assertThat(set, is(true));
-        int rc = socket.getHandshakeIvl();
-        assertThat(rc, is(42));
+        long rc = socket.getHandshakeIvl();
+        assertThat(rc, is(42L));
 
         socket.close();
     }
@@ -450,22 +450,22 @@ public class TestZMQ
 
         boolean set = socket.setHWM(42);
         assertThat(set, is(true));
-        int rc = socket.getRcvHWM();
-        assertThat(rc, is(42));
+        long rc = socket.getRcvHWM();
+        assertThat(rc, is(42L));
 
         rc = socket.getSndHWM();
-        assertThat(rc, is(42));
+        assertThat(rc, is(42L));
 
         set = socket.setHWM(43L);
         assertThat(set, is(true));
         rc = socket.getRcvHWM();
-        assertThat(rc, is(43));
+        assertThat(rc, is(43L));
 
         rc = socket.getSndHWM();
-        assertThat(rc, is(43));
+        assertThat(rc, is(43L));
 
         rc = socket.getHWM();
-        assertThat(rc, is(-1));
+        assertThat(rc, is(-1L));
 
         socket.close();
     }
@@ -575,13 +575,13 @@ public class TestZMQ
 
         boolean set = socket.setLinger(42);
         assertThat(set, is(true));
-        int rc = socket.getLinger();
-        assertThat(rc, is(42));
+        long rc = socket.getLinger();
+        assertThat(rc, is(42L));
 
         set = socket.setLinger(42L);
         assertThat(set, is(true));
         rc = socket.getLinger();
-        assertThat(rc, is(42));
+        assertThat(rc, is(42L));
 
         socket.close();
     }
@@ -608,8 +608,8 @@ public class TestZMQ
 
         boolean set = socket.setMsgAllocationHeapThreshold(42);
         assertThat(set, is(true));
-        int rc = socket.getMsgAllocationHeapThreshold();
-        assertThat(rc, is(42));
+        long rc = socket.getMsgAllocationHeapThreshold();
+        assertThat(rc, is(42L));
 
         socket.close();
     }
@@ -621,21 +621,22 @@ public class TestZMQ
         assertThat(socket, notNullValue());
 
         MsgAllocator allocator = new MsgAllocatorDirect();
-        boolean set = socket.setMsgAllocator(allocator);
-        assertThat(set, is(true));
+        //        boolean set = socket.setMsgAllocator(allocator);
+        //        assertThat(set, is(true));
 
         // TODO
         socket.close();
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void testSocketMulticastHops()
     {
         final Socket socket = ctx.socket(ZMQ.STREAM);
         assertThat(socket, notNullValue());
 
         try {
-            socket.setMulticastHops(42);
+            boolean rc = socket.setMulticastHops(42);
+            assertThat(rc, is(true));
         }
         finally {
             socket.close();
@@ -655,14 +656,15 @@ public class TestZMQ
     }
 
     @SuppressWarnings("deprecation")
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void testSocketMulticastLoop()
     {
         final Socket socket = ctx.socket(ZMQ.STREAM);
         assertThat(socket, notNullValue());
 
         try {
-            socket.setMulticastLoop(true);
+            boolean rc = socket.setMulticastLoop(true);
+            assertThat(rc, is(false));
         }
         finally {
             socket.close();
@@ -696,8 +698,8 @@ public class TestZMQ
         boolean server = socket.getPlainServer();
         assertThat(server, is(false));
 
-        Mechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(Mechanism.PLAIN));
+        AMechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(AMechanism.PLAIN));
 
         socket.close();
     }
@@ -717,8 +719,8 @@ public class TestZMQ
         boolean server = socket.getPlainServer();
         assertThat(server, is(false));
 
-        Mechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(Mechanism.PLAIN));
+        AMechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(AMechanism.PLAIN));
 
         socket.close();
     }
@@ -742,8 +744,8 @@ public class TestZMQ
         server = socket.getAsServerPlain();
         assertThat(server, is(true));
 
-        Mechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(Mechanism.PLAIN));
+        AMechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(AMechanism.PLAIN));
 
         socket.close();
     }
@@ -760,7 +762,7 @@ public class TestZMQ
         socket.close();
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void testSocketRate()
     {
         final Socket socket = ctx.socket(ZMQ.ROUTER);
@@ -795,11 +797,11 @@ public class TestZMQ
         boolean rc = socket.setRcvHWM(42L);
         assertThat(rc, is(true));
 
-        int hwm = socket.getRcvHWM();
-        assertThat(hwm, is(42));
+        long hwm = socket.getRcvHWM();
+        assertThat(hwm, is(42L));
 
         hwm = socket.getSndHWM();
-        assertThat(hwm, is(not(42)));
+        assertThat(hwm, is(not(42L)));
 
         socket.close();
     }
@@ -814,11 +816,11 @@ public class TestZMQ
         boolean rc = socket.setSndHWM(42L);
         assertThat(rc, is(true));
 
-        int hwm = socket.getSndHWM();
-        assertThat(hwm, is(42));
+        long hwm = socket.getSndHWM();
+        assertThat(hwm, is(42L));
 
         hwm = socket.getRcvHWM();
-        assertThat(hwm, is(not(42)));
+        assertThat(hwm, is(not(42L)));
 
         socket.close();
     }
@@ -833,11 +835,11 @@ public class TestZMQ
         boolean rc = socket.setReceiveBufferSize(42L);
         assertThat(rc, is(true));
 
-        int size = socket.getReceiveBufferSize();
-        assertThat(size, is(42));
+        long size = socket.getReceiveBufferSize();
+        assertThat(size, is(42L));
 
         size = socket.getSendBufferSize();
-        assertThat(size, is(not(42)));
+        assertThat(size, is(not(42L)));
 
         socket.close();
     }
@@ -852,11 +854,11 @@ public class TestZMQ
         boolean rc = socket.setSendBufferSize(42L);
         assertThat(rc, is(true));
 
-        int size = socket.getSendBufferSize();
-        assertThat(size, is(42));
+        long size = socket.getSendBufferSize();
+        assertThat(size, is(42L));
 
         size = socket.getReceiveBufferSize();
-        assertThat(size, is(not(42)));
+        assertThat(size, is(not(42L)));
 
         socket.close();
     }
@@ -870,11 +872,11 @@ public class TestZMQ
         boolean rc = socket.setReceiveTimeOut(42);
         assertThat(rc, is(true));
 
-        int size = socket.getReceiveTimeOut();
-        assertThat(size, is(42));
+        long size = socket.getReceiveTimeOut();
+        assertThat(size, is(42L));
 
         size = socket.getSendTimeOut();
-        assertThat(size, is(not(42)));
+        assertThat(size, is(not(42L)));
 
         socket.close();
     }
@@ -888,11 +890,11 @@ public class TestZMQ
         boolean rc = socket.setSendTimeOut(42);
         assertThat(rc, is(true));
 
-        int size = socket.getSendTimeOut();
-        assertThat(size, is(42));
+        long size = socket.getSendTimeOut();
+        assertThat(size, is(42L));
 
         size = socket.getReceiveTimeOut();
-        assertThat(size, is(not(42)));
+        assertThat(size, is(not(42L)));
 
         socket.close();
     }
@@ -907,8 +909,8 @@ public class TestZMQ
         boolean rc = socket.setReconnectIVL(42L);
         assertThat(rc, is(true));
 
-        int reconnect = socket.getReconnectIVL();
-        assertThat(reconnect, is(42));
+        long reconnect = socket.getReconnectIVL();
+        assertThat(reconnect, is(42L));
 
         socket.close();
     }
@@ -923,8 +925,8 @@ public class TestZMQ
         boolean rc = socket.setReconnectIVLMax(42L);
         assertThat(rc, is(true));
 
-        int reconnect = socket.getReconnectIVLMax();
-        assertThat(reconnect, is(42));
+        long reconnect = socket.getReconnectIVLMax();
+        assertThat(reconnect, is(42L));
 
         socket.close();
     }
@@ -1070,8 +1072,7 @@ public class TestZMQ
         socket.close();
     }
 
-    @SuppressWarnings("deprecation")
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void testSocketSwap()
     {
         final Socket socket = ctx.socket(ZMQ.REQ);
@@ -1085,7 +1086,6 @@ public class TestZMQ
         }
     }
 
-    @SuppressWarnings("deprecation")
     @Test
     public void testSocketGetSwap()
     {
@@ -1108,8 +1108,8 @@ public class TestZMQ
         boolean rc = socket.setTCPKeepAlive(1L);
         assertThat(rc, is(true));
 
-        int tcp = socket.getTCPKeepAlive();
-        assertThat(tcp, is(1));
+        long tcp = socket.getTCPKeepAlive();
+        assertThat(tcp, is(1L));
 
         long tcpl = socket.getTCPKeepAliveSetting();
         assertThat(tcpl, is(1L));
@@ -1171,8 +1171,8 @@ public class TestZMQ
         boolean rc = socket.setTos(42);
         assertThat(rc, is(true));
 
-        int tos = socket.getTos();
-        assertThat(tos, is(42));
+        long tos = socket.getTos();
+        assertThat(tos, is(42L));
 
         socket.close();
     }

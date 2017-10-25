@@ -5,8 +5,9 @@ import java.nio.channels.SelectionKey;
 
 import zmq.SocketBase;
 import zmq.ZMQ;
+import zmq.api.APollItem;
 
-public class PollItem
+public class PollItem implements APollItem
 {
     private final SocketBase        socket;
     private final SelectableChannel channel;
@@ -50,26 +51,31 @@ public class PollItem
         return interest;
     }
 
+    @Override
     public final boolean isReadable()
     {
         return (ready & ZMQ.ZMQ_POLLIN) > 0;
     }
 
+    @Override
     public final boolean isWritable()
     {
         return (ready & ZMQ.ZMQ_POLLOUT) > 0;
     }
 
+    @Override
     public final boolean isError()
     {
         return (ready & ZMQ.ZMQ_POLLERR) > 0;
     }
 
+    @Override
     public final SocketBase getSocket()
     {
         return socket;
     }
 
+    @Override
     public final SelectableChannel getRawSocket()
     {
         return channel;
@@ -100,6 +106,7 @@ public class PollItem
         return zinterest;
     }
 
+    @Override
     public final boolean hasEvent(int events)
     {
         return (zinterest & events) > 0;
@@ -118,7 +125,7 @@ public class PollItem
         if (socket != null) {
             //  The poll item is a 0MQ socket. Retrieve pending events
             //  using the ZMQ_EVENTS socket option.
-            int events = socket.getSocketOpt(ZMQ.ZMQ_EVENTS);
+            long events = socket.getSocketOpt(ZMQ.ZMQ_EVENTS);
             if (events < 0) {
                 return -1;
             }
@@ -147,6 +154,7 @@ public class PollItem
         return ready;
     }
 
+    @Override
     public final int readyOps()
     {
         return ready;

@@ -62,6 +62,7 @@ public class RemoteThr
                 printf("error in sendmsg: %s\n");
                 return;
             }
+            System.out.println("Sent " + msg + " " + System.currentTimeMillis());
         }
 
         ZMQ.close(s);

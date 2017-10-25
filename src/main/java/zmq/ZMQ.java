@@ -7,16 +7,16 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
+import zmq.api.AEvent;
 import zmq.io.Metadata;
 import zmq.poll.PollItem;
 import zmq.util.Clock;
 
-public class ZMQ
+public class ZMQ implements zmq.api.ZMQ
 {
     /******************************************************************************/
     /*  0MQ versioning support.                                                   */
@@ -27,176 +27,7 @@ public class ZMQ
     public static final int ZMQ_VERSION_MINOR = 1;
     public static final int ZMQ_VERSION_PATCH = 7;
 
-    /*  Context options  */
-    public static final int ZMQ_IO_THREADS  = 1;
-    public static final int ZMQ_MAX_SOCKETS = 2;
-
-    /*  Default for new contexts                                                  */
-    public static final int ZMQ_IO_THREADS_DFLT  = 1;
-    public static final int ZMQ_MAX_SOCKETS_DFLT = 1024;
-
-    /******************************************************************************/
-    /*  0MQ socket definition.                                                    */
-    /******************************************************************************/
-
-    /*  Socket types.                                                             */
-    public static final int ZMQ_PAIR   = 0;
-    public static final int ZMQ_PUB    = 1;
-    public static final int ZMQ_SUB    = 2;
-    public static final int ZMQ_REQ    = 3;
-    public static final int ZMQ_REP    = 4;
-    public static final int ZMQ_DEALER = 5;
-    public static final int ZMQ_ROUTER = 6;
-    public static final int ZMQ_PULL   = 7;
-    public static final int ZMQ_PUSH   = 8;
-    public static final int ZMQ_XPUB   = 9;
-    public static final int ZMQ_XSUB   = 10;
-    public static final int ZMQ_STREAM = 11;
-
-    /*  Deprecated aliases                                                        */
-    @Deprecated
-    public static final int ZMQ_XREQ = ZMQ_DEALER;
-    @Deprecated
-    public static final int ZMQ_XREP = ZMQ_ROUTER;
-
-    private static final int ZMQ_CUSTOM_OPTION = 1000;
-
-    /*  Socket options.                                                           */
-    public static final int ZMQ_AFFINITY            = 4;
-    public static final int ZMQ_IDENTITY            = 5;
-    public static final int ZMQ_SUBSCRIBE           = 6;
-    public static final int ZMQ_UNSUBSCRIBE         = 7;
-    public static final int ZMQ_RATE                = 8;
-    public static final int ZMQ_RECOVERY_IVL        = 9;
-    public static final int ZMQ_SNDBUF              = 11;
-    public static final int ZMQ_RCVBUF              = 12;
-    public static final int ZMQ_RCVMORE             = 13;
-    public static final int ZMQ_FD                  = 14;
-    public static final int ZMQ_EVENTS              = 15;
-    public static final int ZMQ_TYPE                = 16;
-    public static final int ZMQ_LINGER              = 17;
-    public static final int ZMQ_RECONNECT_IVL       = 18;
-    public static final int ZMQ_BACKLOG             = 19;
-    public static final int ZMQ_RECONNECT_IVL_MAX   = 21;
-    public static final int ZMQ_MAXMSGSIZE          = 22;
-    public static final int ZMQ_SNDHWM              = 23;
-    public static final int ZMQ_RCVHWM              = 24;
-    public static final int ZMQ_MULTICAST_HOPS      = 25;
-    public static final int ZMQ_RCVTIMEO            = 27;
-    public static final int ZMQ_SNDTIMEO            = 28;
-    public static final int ZMQ_LAST_ENDPOINT       = 32;
-    public static final int ZMQ_ROUTER_MANDATORY    = 33;
-    public static final int ZMQ_TCP_KEEPALIVE       = 34;
-    public static final int ZMQ_TCP_KEEPALIVE_CNT   = 35;
-    public static final int ZMQ_TCP_KEEPALIVE_IDLE  = 36;
-    public static final int ZMQ_TCP_KEEPALIVE_INTVL = 37;
-    public static final int ZMQ_IMMEDIATE           = 39 + ZMQ_CUSTOM_OPTION; // for compatibility with ZMQ_DELAY_ATTACH_ON_CONNECT
-    public static final int ZMQ_XPUB_VERBOSE        = 40;
-    public static final int ZMQ_ROUTER_RAW          = 41;
-    public static final int ZMQ_IPV6                = 42;
-    public static final int ZMQ_MECHANISM           = 43;
-    public static final int ZMQ_PLAIN_SERVER        = 44;
-    public static final int ZMQ_PLAIN_USERNAME      = 45;
-    public static final int ZMQ_PLAIN_PASSWORD      = 46;
-    public static final int ZMQ_CURVE_SERVER        = 47;
-    public static final int ZMQ_CURVE_PUBLICKEY     = 48;
-    public static final int ZMQ_CURVE_SECRETKEY     = 49;
-    public static final int ZMQ_CURVE_SERVERKEY     = 50;
-    public static final int ZMQ_PROBE_ROUTER        = 51;
-    public static final int ZMQ_REQ_CORRELATE       = 52;
-    public static final int ZMQ_REQ_RELAXED         = 53;
-    public static final int ZMQ_CONFLATE            = 54;
-    public static final int ZMQ_ZAP_DOMAIN          = 55;
-    // TODO: more constants
-    public static final int ZMQ_ROUTER_HANDOVER          = 56;
-    public static final int ZMQ_TOS                      = 57;
-    public static final int ZMQ_CONNECT_RID              = 61;
-    public static final int ZMQ_GSSAPI_SERVER            = 62;
-    public static final int ZMQ_GSSAPI_PRINCIPAL         = 63;
-    public static final int ZMQ_GSSAPI_SERVICE_PRINCIPAL = 64;
-    public static final int ZMQ_GSSAPI_PLAINTEXT         = 65;
-    public static final int ZMQ_HANDSHAKE_IVL            = 66;
-    public static final int ZMQ_SOCKS_PROXY              = 67;
-    public static final int ZMQ_XPUB_NODROP              = 69;
-    public static final int ZMQ_BLOCKY                   = 70;
-
-    public static final int ZMQ_HEARTBEAT_IVL            = 75;
-    public static final int ZMQ_HEARTBEAT_TTL            = 76;
-    public static final int ZMQ_HEARTBEAT_TIMEOUT        = 77;
-    @Deprecated
-    public static final int ZMQ_XPUB_VERBOSE_UNSUBSCRIBE = 78;
-
-    /* Custom options */
-    @Deprecated
-    public static final int ZMQ_ENCODER                       = ZMQ_CUSTOM_OPTION + 1;
-    @Deprecated
-    public static final int ZMQ_DECODER                       = ZMQ_CUSTOM_OPTION + 2;
-    public static final int ZMQ_MSG_ALLOCATOR                 = ZMQ_CUSTOM_OPTION + 3;
-    public static final int ZMQ_MSG_ALLOCATION_HEAP_THRESHOLD = ZMQ_CUSTOM_OPTION + 4;
-    public static final int ZMQ_HEARTBEAT_CONTEXT             = ZMQ_CUSTOM_OPTION + 5;
-
-    /*  Message options                                                           */
-    public static final int ZMQ_MORE = 1;
-
-    /*  Send/recv options.                                                        */
-    public static final int ZMQ_DONTWAIT = 1;
-    public static final int ZMQ_SNDMORE  = 2;
-
-    /*  Deprecated aliases                                                        */
-    @Deprecated
-    public static final int ZMQ_TCP_ACCEPT_FILTER       = 38;
-    @Deprecated
-    public static final int ZMQ_IPV4ONLY                = 31;
-    @Deprecated
-    public static final int ZMQ_DELAY_ATTACH_ON_CONNECT = 39;
-    @Deprecated
-    public static final int ZMQ_NOBLOCK                 = ZMQ_DONTWAIT;
-    @Deprecated
-    public static final int ZMQ_FAIL_UNROUTABLE         = ZMQ_ROUTER_MANDATORY;
-    @Deprecated
-    public static final int ZMQ_ROUTER_BEHAVIOR         = ZMQ_ROUTER_MANDATORY;
-
-    /******************************************************************************/
-    /*  0MQ socket events and monitoring                                          */
-    /******************************************************************************/
-
-    /*  Socket transport events (tcp and ipc only)                                */
-    public static final int ZMQ_EVENT_CONNECTED          = 1;
-    public static final int ZMQ_EVENT_CONNECT_DELAYED    = 1 << 1;
-    public static final int ZMQ_EVENT_CONNECT_RETRIED    = 1 << 2;
-    public static final int ZMQ_EVENT_LISTENING          = 1 << 3;
-    public static final int ZMQ_EVENT_BIND_FAILED        = 1 << 4;
-    public static final int ZMQ_EVENT_ACCEPTED           = 1 << 5;
-    public static final int ZMQ_EVENT_ACCEPT_FAILED      = 1 << 6;
-    public static final int ZMQ_EVENT_CLOSED             = 1 << 7;
-    public static final int ZMQ_EVENT_CLOSE_FAILED       = 1 << 8;
-    public static final int ZMQ_EVENT_DISCONNECTED       = 1 << 9;
-    public static final int ZMQ_EVENT_MONITOR_STOPPED    = 1 << 10;
-    public static final int ZMQ_EVENT_HANDSHAKE_PROTOCOL = 1 << 15;
-    public static final int ZMQ_EVENT_ALL                = 0xffff;
-
-    public static final int ZMQ_POLLIN  = 1;
-    public static final int ZMQ_POLLOUT = 2;
-    public static final int ZMQ_POLLERR = 4;
-
-    @Deprecated
-    public static final int ZMQ_STREAMER  = 1;
-    @Deprecated
-    public static final int ZMQ_FORWARDER = 2;
-    @Deprecated
-    public static final int ZMQ_QUEUE     = 3;
-
-    public static final byte[] MESSAGE_SEPARATOR = new byte[0];
-
-    public static final byte[] SUBSCRIPTION_ALL = new byte[0];
-
-    public static final Charset CHARSET = Charset.forName("UTF-8");
-
-    public static final byte[] PROXY_PAUSE     = "PAUSE".getBytes(ZMQ.CHARSET);
-    public static final byte[] PROXY_RESUME    = "RESUME".getBytes(ZMQ.CHARSET);
-    public static final byte[] PROXY_TERMINATE = "TERMINATE".getBytes(ZMQ.CHARSET);
-
-    public static class Event
+    public static class Event implements AEvent
     {
         private static final int VALUE_INTEGER = 1;
         private static final int VALUE_CHANNEL = 2;
@@ -270,6 +101,24 @@ public class ZMQ
         {
             return read(s, 0);
         }
+
+        @Override
+        public int event()
+        {
+            return event;
+        }
+
+        @Override
+        public Object argument()
+        {
+            return arg;
+        }
+
+        @Override
+        public String address()
+        {
+            return addr;
+        }
     }
 
     //  New context API
@@ -281,7 +130,7 @@ public class ZMQ
 
     private static void checkContext(Ctx ctx)
     {
-        if (ctx == null || !ctx.checkTag()) {
+        if (ctx == null || !ctx.isAlive()) {
             throw new IllegalStateException();
         }
     }
@@ -301,13 +150,13 @@ public class ZMQ
     public static void setContextOption(Ctx ctx, int option, int optval)
     {
         checkContext(ctx);
-        ctx.set(option, optval);
+        ctx.setOption(option, optval);
     }
 
     public static int getContextOption(Ctx ctx, int option)
     {
         checkContext(ctx);
-        return ctx.get(option);
+        return ctx.getOption(option);
     }
 
     //  Stable/legacy context API
@@ -365,7 +214,7 @@ public class ZMQ
         return s.getSocketOptx(option);
     }
 
-    public static int getSocketOption(SocketBase s, int opt)
+    public static long getSocketOption(SocketBase s, int opt)
     {
         return s.getSocketOpt(opt);
     }
@@ -596,17 +445,17 @@ public class ZMQ
 
     public static void sleep(long seconds)
     {
-        sleep(seconds, TimeUnit.SECONDS);
+        org.zeromq.ZMQ.sleep(seconds);
     }
 
     public static void msleep(long milliseconds)
     {
-        sleep(milliseconds, TimeUnit.MILLISECONDS);
+        org.zeromq.ZMQ.msleep(milliseconds);
     }
 
     public static void sleep(long amount, TimeUnit unit)
     {
-        LockSupport.parkNanos(TimeUnit.NANOSECONDS.convert(amount, unit));
+        org.zeromq.ZMQ.sleep(amount, unit);
     }
 
     /**
@@ -814,7 +663,7 @@ public class ZMQ
 
     public static int makeVersion(int major, int minor, int patch)
     {
-        return ((major) * 10000 + (minor) * 100 + (patch));
+        return org.zeromq.ZMQ.makeVersion(major, minor, patch);
     }
 
     public static String strerror(int errno)

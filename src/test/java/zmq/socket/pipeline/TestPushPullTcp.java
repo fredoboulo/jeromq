@@ -44,13 +44,13 @@ public class TestPushPullTcp
         Msg msg;
         msg = ZMQ.recv(pull, 0);
         assert (msg.size() == 32);
-        int rcvmore = ZMQ.getSocketOption(pull, ZMQ.ZMQ_RCVMORE);
-        assertThat(rcvmore, is(1));
+        long rcvmore = ZMQ.getSocketOption(pull, ZMQ.ZMQ_RCVMORE);
+        assertThat(rcvmore, is(1L));
 
         msg = ZMQ.recv(pull, 0);
         assert (rc == 32);
         rcvmore = ZMQ.getSocketOption(pull, ZMQ.ZMQ_RCVMORE);
-        assertThat(rcvmore, is(0));
+        assertThat(rcvmore, is(0L));
 
         //  Tear down the wiring.
         ZMQ.close(push);

@@ -19,6 +19,7 @@ public class MTrieTest
     private static final class MtrieHandler implements IMtrieHandler
     {
         private final AtomicInteger counter = new AtomicInteger();
+
         @Override
         public void invoke(Pipe pipe, byte[] data, int size, XPub pub)
         {
@@ -44,7 +45,7 @@ public class MTrieTest
         ZObject object = new ZObject(null, 0)
         {
         };
-        Pipe[] pair = Pipe.pair(new ZObject[] { object, object }, new int[2], new boolean[2]);
+        Pipe[] pair = Pipe.pair(new ZObject[] { object, object }, new long[2], new boolean[2]);
         return pair[0];
     }
 

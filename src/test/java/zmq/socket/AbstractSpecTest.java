@@ -47,12 +47,12 @@ public class AbstractSpecTest
                 assertThat(msg.data(), is(payload.getBytes(ZMQ.CHARSET)));
             }
 
-            int rc = ZMQ.getSocketOption(socket, ZMQ.ZMQ_RCVMORE);
+            long rc = ZMQ.getSocketOption(socket, ZMQ.ZMQ_RCVMORE);
             if (idx == data.length - 1) {
-                assertThat(rc, is(0));
+                assertThat(rc, is(0L));
             }
             else {
-                assertThat(rc, is(1));
+                assertThat(rc, is(1L));
             }
         }
     }

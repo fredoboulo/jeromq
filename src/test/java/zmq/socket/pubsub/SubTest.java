@@ -22,8 +22,8 @@ public class SubTest
         try {
             pub = ctx.createSocket(ZMQ.ZMQ_SUB);
 
-            int events = pub.getSocketOpt(ZMQ.ZMQ_EVENTS);
-            assertThat(events, is(0));
+            long events = pub.getSocketOpt(ZMQ.ZMQ_EVENTS);
+            assertThat(events, is(0L));
         }
         finally {
             ZMQ.close(pub);

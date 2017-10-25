@@ -21,8 +21,8 @@ public class PubTest
         try {
             pub = ctx.createSocket(ZMQ.ZMQ_PUB);
 
-            int events = pub.getSocketOpt(ZMQ.ZMQ_EVENTS);
-            assertThat(events, is(2));
+            long events = pub.getSocketOpt(ZMQ.ZMQ_EVENTS);
+            assertThat(events, is(2L));
         }
         finally {
             ZMQ.close(pub);

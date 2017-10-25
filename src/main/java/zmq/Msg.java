@@ -5,10 +5,11 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.SocketChannel;
 
+import zmq.api.AMsg;
 import zmq.io.Metadata;
 import zmq.util.Wire;
 
-public class Msg
+public class Msg implements AMsg
 {
     // dynamic message building used when the size is not known in advance
     public static final class Builder extends Msg
@@ -208,6 +209,7 @@ public class Msg
         flags = 0;
     }
 
+    @Override
     public byte[] data()
     {
         if (data == null) {
@@ -217,11 +219,13 @@ public class Msg
         return data;
     }
 
+    @Override
     public ByteBuffer buf()
     {
         return buf.duplicate();
     }
 
+    @Override
     public int size()
     {
         return size;
@@ -324,6 +328,7 @@ public class Msg
         return this;
     }
 
+    @Override
     public int getBytes(int index, byte[] dst, int off, int len)
     {
         int count = Math.min(len, size - index);
@@ -388,5 +393,11 @@ public class Msg
         buf.limit(srcOffset + srcLength).position(srcOffset);
         destination.put(buf);
         buf.limit(limit).position(position);
+    }
+
+    @Override
+    public AMsg copy()
+    {
+        return new Msg(data());
     }
 }

@@ -317,7 +317,7 @@ public class SessionBase extends Own implements Pipe.IPipeEvents, IPollEvents
         //  Create a bi-directional pipe that will connect
         //  session with zap socket.
         ZObject[] parents = { this, peer.socket };
-        int[] hwms = { 0, 0 };
+        long[] hwms = { 0, 0 };
         boolean[] conflates = { false, false };
         Pipe[] pipes = Pipe.pair(parents, hwms, conflates);
 
@@ -354,7 +354,7 @@ public class SessionBase extends Own implements Pipe.IPipeEvents, IPollEvents
             boolean conflate = options.conflate && (options.type == ZMQ.ZMQ_DEALER || options.type == ZMQ.ZMQ_PULL
                     || options.type == ZMQ.ZMQ_PUSH || options.type == ZMQ.ZMQ_PUB || options.type == ZMQ.ZMQ_SUB);
 
-            int[] hwms = { conflate ? -1 : options.recvHwm, conflate ? -1 : options.sendHwm };
+            long[] hwms = { conflate ? -1 : options.recvHwm, conflate ? -1 : options.sendHwm };
             boolean[] conflates = { conflate, conflate };
             Pipe[] pipes = Pipe.pair(parents, hwms, conflates);
 
@@ -414,7 +414,7 @@ public class SessionBase extends Own implements Pipe.IPipeEvents, IPollEvents
     }
 
     @Override
-    protected void processTerm(int linger)
+    protected void processTerm(long linger)
     {
         assert (!pending);
 

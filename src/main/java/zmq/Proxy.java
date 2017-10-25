@@ -40,7 +40,7 @@ class Proxy
         //  any of the pipes becomes full.
 
         int rc;
-        int more;
+        long more;
         Msg msg;
         int count = control == null ? 2 : 3;
 
@@ -106,8 +106,7 @@ class Proxy
                     }
                     else {
                         //  This is an API error, we should assert
-                        System.out
-                                .printf("E: invalid command sent to proxy '%s'%n", new String(command, ZMQ.CHARSET));
+                        System.out.printf("E: invalid command sent to proxy '%s'%n", new String(command, ZMQ.CHARSET));
                         assert false;
                     }
                 }
@@ -139,7 +138,7 @@ class Proxy
 
     private boolean forward(SocketBase from, SocketBase to, SocketBase capture)
     {
-        int more;
+        long more;
         boolean success;
         while (true) {
             Msg msg = from.recv(0);
@@ -167,7 +166,7 @@ class Proxy
         return true;
     }
 
-    private boolean capture(SocketBase capture, Msg msg, int more)
+    private boolean capture(SocketBase capture, Msg msg, long more)
     {
         if (capture != null) {
             Msg ctrl = new Msg(msg);
