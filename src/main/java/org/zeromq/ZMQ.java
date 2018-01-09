@@ -257,6 +257,19 @@ public class ZMQ
         return new Context(ioThreads);
     }
 
+    /**
+     * The ØMQ context keeps the list of sockets and manages the async I/O thread and internal queries.
+     * <br/>
+     * Before using any ØMQ library functions you must create a ØMQ context.
+     * <br/>
+     * When you exit your application you must destroy the context.
+     * <p/>
+     * A <strong>ØMQ context is thread safe</strong> and may be shared among as many application threads as necessary,
+     * without any additional locking required on the part of the caller.
+     * <br/>
+     * Individual <strong>ØMQ sockets are not thread safe</strong> except in the case
+     * where full memory barriers are issued when migrating a socket from one thread to another.
+     */
     public static class Context implements Closeable
     {
         private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -364,7 +377,15 @@ public class ZMQ
         }
 
         /**
-         * Create a new Socket within this context.
+         * Creates a ØMQ socket within the specified context and return an opaque handle to the newly created socket.
+         * <br/>
+         * The type argument specifies the socket type, which determines the semantics of communication over the socket.
+         * <br/>
+         * The newly created socket is initially unbound, and not associated with any endpoints.
+         * <br/>
+         * In order to establish a message flow a socket must first be connected 
+         * to at least one endpoint with {@link org.zeromq.ZMQ.Socket#connect(String)},
+         * or at least one endpoint must be created for accepting incoming connections with {@link org.zeromq.ZMQ.Socket#bind(String)}.
          *
          * @param type
          *            the socket type.
@@ -427,6 +448,27 @@ public class ZMQ
         }
     }
 
+    /**
+     * ØMQ sockets present an abstraction of an asynchronous message queue,
+     * with the exact queueing semantics depending on the socket type in use.
+     * Where conventional sockets transfer streams of bytes or discrete datagrams,
+     * ØMQ sockets transfer discrete messages.
+     * <br/>
+     * ØMQ sockets being asynchronous means that the timings of the physical connection setup and tear down,
+     * reconnect and effective delivery are transparent to the user and organized by ØMQ itself.
+     * Further, messages may be queued in the event that a peer is unavailable to receive them.
+     * <br/>
+     * With the exception of ZMQ_PAIR, ØMQ sockets may be connected
+     * to multiple endpoints using {@link org.zeromq.ZMQ.Socket#connect(String)},
+     * while simultaneously accepting incoming connections
+     * from multiple endpoints bound to the socket using {@link org.zeromq.ZMQ.Socket#bind(String)},
+     * thus allowing many-to-many relationships.
+     * <p/>
+     * ØMQ socket are not thread-safe.
+     * <br/>
+     * Applications <strong>MUST NOT</strong> use a ØMQ socket from multiple threads
+     * except after migrating a socket from one thread to another with a "full fence" memory barrier.
+     */
     public static class Socket implements Closeable
     {
         //  This port range is defined by IANA for dynamic or private ports
@@ -489,7 +531,7 @@ public class ZMQ
          */
         public int getType()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_TYPE);
+            return getSocketOpt(zmq.ZMQ.ZMQ_TYPE);
         }
 
         /**
@@ -505,7 +547,7 @@ public class ZMQ
          */
         public int getLinger()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_LINGER);
+            return getSocketOpt(zmq.ZMQ.ZMQ_LINGER);
         }
 
         private boolean setSocketOpt(int option, Object value)
@@ -518,6 +560,22 @@ public class ZMQ
             catch (CtxTerminatedException e) {
                 return false;
             }
+        }
+
+        private int getSocketOpt(int option)
+        {
+            if (isClosed.get()) {
+                return -1;
+            }
+            return base.getSocketOpt(option);
+        }
+
+        private Object getSocketOptx(int option)
+        {
+            if (isClosed.get()) {
+                return null;
+            }
+            return base.getSocketOptx(option);
         }
 
         /**
@@ -583,7 +641,7 @@ public class ZMQ
          */
         public int getReconnectIVL()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_RECONNECT_IVL);
+            return getSocketOpt(zmq.ZMQ.ZMQ_RECONNECT_IVL);
         }
 
         /**
@@ -627,7 +685,7 @@ public class ZMQ
          */
         public int getBacklog()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_BACKLOG);
+            return getSocketOpt(zmq.ZMQ.ZMQ_BACKLOG);
         }
 
         /**
@@ -676,7 +734,7 @@ public class ZMQ
          */
         public int getHandshakeIvl()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_HANDSHAKE_IVL);
+            return getSocketOpt(zmq.ZMQ.ZMQ_HANDSHAKE_IVL);
         }
 
         /**
@@ -703,7 +761,7 @@ public class ZMQ
          */
         public int getTos()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_TOS);
+            return getSocketOpt(zmq.ZMQ.ZMQ_TOS);
         }
 
         /**
@@ -733,7 +791,7 @@ public class ZMQ
          */
         public int getReconnectIVLMax()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_RECONNECT_IVL_MAX);
+            return getSocketOpt(zmq.ZMQ.ZMQ_RECONNECT_IVL_MAX);
         }
 
         /**
@@ -778,7 +836,11 @@ public class ZMQ
          */
         public long getMaxMsgSize()
         {
-            return (Long) base.getSocketOptx(zmq.ZMQ.ZMQ_MAXMSGSIZE);
+            Object opt = getSocketOptx(zmq.ZMQ.ZMQ_MAXMSGSIZE);
+            if (opt instanceof Long) {
+                return (Long) opt;
+            }
+            return -1;
         }
 
         /**
@@ -808,7 +870,7 @@ public class ZMQ
          */
         public int getSndHWM()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_SNDHWM);
+            return getSocketOpt(zmq.ZMQ.ZMQ_SNDHWM);
         }
 
         /**
@@ -868,7 +930,7 @@ public class ZMQ
          */
         public int getRcvHWM()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_RCVHWM);
+            return getSocketOpt(zmq.ZMQ.ZMQ_RCVHWM);
         }
 
         /**
@@ -1005,7 +1067,7 @@ public class ZMQ
          */
         public boolean isConflate()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_CONFLATE) != 0;
+            return getSocketOpt(zmq.ZMQ.ZMQ_CONFLATE) != 0;
         }
 
         /**
@@ -1045,7 +1107,11 @@ public class ZMQ
          */
         public long getAffinity()
         {
-            return (Long) base.getSocketOptx(zmq.ZMQ.ZMQ_AFFINITY);
+            Object opt = getSocketOptx(zmq.ZMQ.ZMQ_AFFINITY);
+            if (opt instanceof Long) {
+                return (Long) opt;
+            }
+            return -1;
         }
 
         /**
@@ -1078,7 +1144,7 @@ public class ZMQ
          */
         public byte[] getIdentity()
         {
-            return (byte[]) base.getSocketOptx(zmq.ZMQ.ZMQ_IDENTITY);
+            return (byte[]) getSocketOptx(zmq.ZMQ.ZMQ_IDENTITY);
         }
 
         /**
@@ -1111,7 +1177,7 @@ public class ZMQ
          */
         public long getRate()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_RATE);
+            return getSocketOpt(zmq.ZMQ.ZMQ_RATE);
         }
 
         /**
@@ -1136,7 +1202,7 @@ public class ZMQ
          */
         public long getRecoveryInterval()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_RECOVERY_IVL);
+            return getSocketOpt(zmq.ZMQ.ZMQ_RECOVERY_IVL);
         }
 
         /**
@@ -1265,7 +1331,7 @@ public class ZMQ
          */
         public long getMulticastHops()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_MULTICAST_HOPS);
+            return getSocketOpt(zmq.ZMQ.ZMQ_MULTICAST_HOPS);
         }
 
         /**
@@ -1293,7 +1359,7 @@ public class ZMQ
          */
         public int getReceiveTimeOut()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_RCVTIMEO);
+            return getSocketOpt(zmq.ZMQ.ZMQ_RCVTIMEO);
         }
 
         /**
@@ -1323,7 +1389,7 @@ public class ZMQ
          */
         public int getSendTimeOut()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_SNDTIMEO);
+            return getSocketOpt(zmq.ZMQ.ZMQ_SNDTIMEO);
         }
 
         /**
@@ -1385,7 +1451,7 @@ public class ZMQ
          */
         public long getTCPKeepAliveCount()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_TCP_KEEPALIVE_CNT);
+            return getSocketOpt(zmq.ZMQ.ZMQ_TCP_KEEPALIVE_CNT);
         }
 
         /**
@@ -1408,7 +1474,7 @@ public class ZMQ
          */
         public long getTCPKeepAliveInterval()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_TCP_KEEPALIVE_INTVL);
+            return getSocketOpt(zmq.ZMQ.ZMQ_TCP_KEEPALIVE_INTVL);
         }
 
         /**
@@ -1431,7 +1497,7 @@ public class ZMQ
          */
         public long getTCPKeepAliveIdle()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_TCP_KEEPALIVE_IDLE);
+            return getSocketOpt(zmq.ZMQ.ZMQ_TCP_KEEPALIVE_IDLE);
         }
 
         /**
@@ -1443,7 +1509,7 @@ public class ZMQ
          */
         public int getSendBufferSize()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_SNDBUF);
+            return getSocketOpt(zmq.ZMQ.ZMQ_SNDBUF);
         }
 
         /**
@@ -1489,7 +1555,7 @@ public class ZMQ
          */
         public int getReceiveBufferSize()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_RCVBUF);
+            return getSocketOpt(zmq.ZMQ.ZMQ_RCVBUF);
         }
 
         /**
@@ -1537,7 +1603,7 @@ public class ZMQ
          */
         public boolean hasReceiveMore()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_RCVMORE) == 1;
+            return getSocketOpt(zmq.ZMQ.ZMQ_RCVMORE) == 1;
         }
 
         /**
@@ -1553,7 +1619,7 @@ public class ZMQ
          */
         public SelectableChannel getFD()
         {
-            return (SelectableChannel) base.getSocketOptx(zmq.ZMQ.ZMQ_FD);
+            return (SelectableChannel) getSocketOptx(zmq.ZMQ.ZMQ_FD);
         }
 
         /**
@@ -1565,7 +1631,7 @@ public class ZMQ
          */
         public int getEvents()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_EVENTS);
+            return getSocketOpt(zmq.ZMQ.ZMQ_EVENTS);
         }
 
         /**
@@ -1677,7 +1743,7 @@ public class ZMQ
          */
         public int getMsgAllocationHeapThreshold()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_MSG_ALLOCATION_HEAP_THRESHOLD);
+            return getSocketOpt(zmq.ZMQ.ZMQ_MSG_ALLOCATION_HEAP_THRESHOLD);
         }
 
         /**
@@ -1842,7 +1908,7 @@ public class ZMQ
          */
         public boolean isIPv6()
         {
-            return (Boolean) base.getSocketOptx(zmq.ZMQ.ZMQ_IPV6);
+            return Boolean.TRUE.equals(getSocketOptx(zmq.ZMQ.ZMQ_IPV6));
         }
 
         /**
@@ -1895,7 +1961,7 @@ public class ZMQ
          */
         public int getTCPKeepAlive()
         {
-            return base.getSocketOpt(zmq.ZMQ.ZMQ_TCP_KEEPALIVE);
+            return getSocketOpt(zmq.ZMQ.ZMQ_TCP_KEEPALIVE);
         }
 
         /**
@@ -1947,7 +2013,7 @@ public class ZMQ
          */
         public boolean isImmediate()
         {
-            return (boolean) base.getSocketOptx(zmq.ZMQ.ZMQ_IMMEDIATE);
+            return Boolean.TRUE.equals(getSocketOptx(zmq.ZMQ.ZMQ_IMMEDIATE));
         }
 
         /**
@@ -2021,7 +2087,7 @@ public class ZMQ
          */
         public String getSocksProxy()
         {
-            return (String) base.getSocketOptx(zmq.ZMQ.ZMQ_SOCKS_PROXY);
+            return (String) getSocketOptx(zmq.ZMQ.ZMQ_SOCKS_PROXY);
         }
 
         /**
@@ -2031,7 +2097,7 @@ public class ZMQ
          */
         public String getLastEndpoint()
         {
-            return (String) base.getSocketOptx(zmq.ZMQ.ZMQ_LAST_ENDPOINT);
+            return (String) getSocketOptx(zmq.ZMQ.ZMQ_LAST_ENDPOINT);
         }
 
         /**
@@ -2075,7 +2141,7 @@ public class ZMQ
          */
         public String getZapDomain()
         {
-            return (String) base.getSocketOptx(zmq.ZMQ.ZMQ_ZAP_DOMAIN);
+            return (String) getSocketOptx(zmq.ZMQ.ZMQ_ZAP_DOMAIN);
         }
 
         /**
@@ -2190,7 +2256,7 @@ public class ZMQ
          */
         public boolean getPlainServer()
         {
-            return (Boolean) base.getSocketOptx(zmq.ZMQ.ZMQ_PLAIN_SERVER);
+            return Boolean.TRUE.equals(getSocketOptx(zmq.ZMQ.ZMQ_PLAIN_SERVER));
         }
 
         /**
@@ -2255,7 +2321,7 @@ public class ZMQ
          */
         public String getPlainUsername()
         {
-            return (String) base.getSocketOptx(zmq.ZMQ.ZMQ_PLAIN_USERNAME);
+            return (String) getSocketOptx(zmq.ZMQ.ZMQ_PLAIN_USERNAME);
         }
 
         /**
@@ -2267,7 +2333,7 @@ public class ZMQ
          */
         public String getPlainPassword()
         {
-            return (String) base.getSocketOptx(zmq.ZMQ.ZMQ_PLAIN_PASSWORD);
+            return (String) getSocketOptx(zmq.ZMQ.ZMQ_PLAIN_PASSWORD);
         }
 
         /**
@@ -2329,7 +2395,7 @@ public class ZMQ
          */
         public boolean getCurveServer()
         {
-            return (boolean) base.getSocketOptx(zmq.ZMQ.ZMQ_CURVE_SERVER);
+            return Boolean.TRUE.equals(getSocketOptx(zmq.ZMQ.ZMQ_CURVE_SERVER));
         }
 
         /**
@@ -2406,7 +2472,7 @@ public class ZMQ
          */
         public byte[] getCurvePublicKey()
         {
-            return (byte[]) base.getSocketOptx(zmq.ZMQ.ZMQ_CURVE_PUBLICKEY);
+            return (byte[]) getSocketOptx(zmq.ZMQ.ZMQ_CURVE_PUBLICKEY);
         }
 
         /**
@@ -2417,7 +2483,7 @@ public class ZMQ
          */
         public byte[] getCurveServerKey()
         {
-            return (byte[]) base.getSocketOptx(zmq.ZMQ.ZMQ_CURVE_SERVERKEY);
+            return (byte[]) getSocketOptx(zmq.ZMQ.ZMQ_CURVE_SERVERKEY);
         }
 
         /**
@@ -2428,7 +2494,7 @@ public class ZMQ
          */
         public byte[] getCurveSecretKey()
         {
-            return (byte[]) base.getSocketOptx(zmq.ZMQ.ZMQ_CURVE_SECRETKEY);
+            return (byte[]) getSocketOptx(zmq.ZMQ.ZMQ_CURVE_SECRETKEY);
         }
 
         public enum Mechanism
@@ -2463,11 +2529,33 @@ public class ZMQ
          */
         public Mechanism getMechanism()
         {
-            return Mechanism.find((Mechanisms) base.getSocketOptx(zmq.ZMQ.ZMQ_MECHANISM));
+            return Mechanism.find((Mechanisms) getSocketOptx(zmq.ZMQ.ZMQ_MECHANISM));
         }
 
         /**
-         * Bind to network interface. Start listening for new connections.
+         * Binds the socket to a local endpoint and then accepts incoming connections on that endpoint.
+         * <p/>
+         * The endpoint is a string consisting of a transport :// followed by an address.
+         * <br/>
+         * The transport specifies the underlying protocol to use.
+         * <br/>
+         * The address specifies the transport-specific address to connect to.
+         * <p/>
+         * ØMQ provides the the following transports:
+         * <ul>
+         * <li>tcp - unicast transport using TCP</li>
+         * <li>ipc - local inter-process communication transport</li>
+         * <li>inproc - local in-process (inter-thread) communication transport</li>
+         * </ul>
+         * Every ØMQ socket type except ZMQ_PAIR supports one-to-many and many-to-one semantics.
+         * The precise semantics depend on the socket type.
+         * <p/>
+         * Following a bind(), the socket enters a mute state unless or until at least
+         * one incoming or outgoing connection is made, at which point the socket enters a ready state.
+         * <br/>
+         * In the mute state, the socket blocks or drops messages according to the socket type.
+         * <br/>
+         * By contrast, following a {@link #connect(String)}, the socket enters the ready state.
          *
          * @param addr
          *            the endpoint to bind to.
@@ -2520,8 +2608,42 @@ public class ZMQ
         }
 
         /**
-         * Connect to remote application.
-         *
+         * Connects the socket to an endpoint and then accepts incoming connections on that endpoint.
+         * <p/>
+         * The endpoint is a string consisting of a transport :// followed by an address.
+         * <br/>
+         * The transport specifies the underlying protocol to use.
+         * <br/>
+         * The address specifies the transport-specific address to connect to.
+         * <p/>
+         * ØMQ provides the the following transports:
+         * <ul>
+         * <li>tcp - unicast transport using TCP</li>
+         * <li>ipc - local inter-process communication transport</li>
+         * <li>inproc - local in-process (inter-thread) communication transport</li>
+         * </ul>
+         * Every ØMQ socket type except ZMQ_PAIR supports one-to-many and many-to-one semantics.
+         * The precise semantics depend on the socket type.
+         * <p/>
+         * For most transports and socket types the connection is not performed immediately but as needed by ØMQ.
+         * <br/>
+         * Thus a successful call to connect(String) does not mean that the connection was or could actually be established.
+         * <br/>
+         * Because of this, for most transports and socket types
+         * the order in which a server socket is bound and a client socket is connected to it does not matter.
+         * <br/>
+         * The first exception is when using the inproc:// transport: you must call {@link #bind(String)} before calling connect().
+         * <br/>
+         * The second exception are ZMQ_PAIR sockets, which do not automatically reconnect to endpoints.
+         * <p/>
+         * Following a connect(), for socket types except for ZMQ_ROUTER, the socket enters its normal ready state.
+         * <br/>
+         * By contrast, following a {@link #bind(String)} alone, the socket enters a mute state
+         * in which the socket blocks or drops messages according to the socket type.
+         * <br/>
+         * A ZMQ_ROUTER socket enters its normal ready state for a specific peer
+         * only when handshaking is complete for that peer, which may take an arbitrary time.
+         * 
          * @param addr
          *            the endpoint to connect to.
          * @return true if the socket was connected, otherwise false.
