@@ -383,7 +383,7 @@ public class ZMQ
          * <br/>
          * The newly created socket is initially unbound, and not associated with any endpoints.
          * <br/>
-         * In order to establish a message flow a socket must first be connected 
+         * In order to establish a message flow a socket must first be connected
          * to at least one endpoint with {@link org.zeromq.ZMQ.Socket#connect(String)},
          * or at least one endpoint must be created for accepting incoming connections with {@link org.zeromq.ZMQ.Socket#bind(String)}.
          *
@@ -2643,7 +2643,7 @@ public class ZMQ
          * <br/>
          * A ZMQ_ROUTER socket enters its normal ready state for a specific peer
          * only when handshaking is complete for that peer, which may take an arbitrary time.
-         * 
+         *
          * @param addr
          *            the endpoint to connect to.
          * @return true if the socket was connected, otherwise false.
@@ -3614,7 +3614,8 @@ public class ZMQ
 
         /**
          * The function shall decode given key encoded as Z85 string into byte array.
-         *
+         * <br/>
+         * The length of string shall be divisible by 5.
          * <p>The decoding shall follow the ZMQ RFC 32 specification.</p>
          *
          * @param key Key to be decoded
@@ -3626,6 +3627,12 @@ public class ZMQ
         }
 
         /**
+         * Encodes the binary block specified by data into a string.
+         * <br/>
+         * The size of the binary block must be divisible by 4.
+         * <br/>
+         * A 32-byte CURVE key is encoded as 40 ASCII characters plus a null terminator.
+         * <br/>
          * The function shall encode the binary block specified into a string.
          *
          * <p>The encoding shall follow the ZMQ RFC 32 specification.</p>
