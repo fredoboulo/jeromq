@@ -4,13 +4,11 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import org.zeromq.ZMQ.Socket;
-import org.zeromq.ZStar;
 
 import zmq.Helper;
 
@@ -100,6 +98,7 @@ public class ProxyCloseZeroTest
     {
         System.out.println("Close Proxy with linger 0");
         for (int idx = 250; idx > 0; idx--) {
+            System.out.print(Helper.erase(110));
             test(idx, new ProxyClose());
             //            System.out.println();
         }
@@ -108,16 +107,16 @@ public class ProxyCloseZeroTest
 
     private void test(int idx, ProxyClose proxy) throws InterruptedException
     {
-        Helper.erase(100);
         System.out.printf("%s ZMQ v %s ", getClass().getSimpleName(), getVersionString());
         long start = System.currentTimeMillis();
         proxy.start();
         proxy.await();
-        ZStar.party(15, TimeUnit.MILLISECONDS);
+        ZMQ.msleep(15);
         proxy.stopProxyThread();
         proxy.join();
         long end = System.currentTimeMillis();
 
         System.out.printf(". Test #%d finished in %4d millis.", idx, (end - start));
+        ZMQ.msleep(30);
     }
 }

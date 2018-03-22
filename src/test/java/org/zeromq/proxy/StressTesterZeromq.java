@@ -26,7 +26,7 @@ public class StressTesterZeromq extends StressTesterZMQ
 {
     public StressTesterZeromq(int frontEndType, int brokerType, int workerType) throws IOException
     {
-        super(frontEndType, brokerType, workerType);
+        super("Zeromq", frontEndType, brokerType, workerType);
     }
 
     @Override

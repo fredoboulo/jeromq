@@ -32,8 +32,8 @@ public class TestPerfs
     private static final int    LOOPS_10      = 10;
 
     private static final int LOOPS_2         = 25;
-    private static final int POWER_2_MESSAGE = 9; // 9
-    private static final int POWER_2_PAYLOAD = 9; // 9
+    private static final int POWER_2_MESSAGE = 12; // 9
+    private static final int POWER_2_PAYLOAD = 12; // 9
 
     private static MetricRegistry registry;
 
