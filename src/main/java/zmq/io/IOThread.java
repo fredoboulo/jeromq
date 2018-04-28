@@ -1,8 +1,8 @@
 package zmq.io;
 
 import java.nio.channels.SelectableChannel;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import zmq.Command;
 import zmq.Ctx;
@@ -25,7 +25,7 @@ public class IOThread extends ZObject implements IPollEvents
     private final Poller poller;
 
     // I/O objects being plugged at the moment
-    private final Map<IOObject, Object> plugs = new ConcurrentHashMap<>();
+    private final Set<IOObject> plugs = new HashSet<>();
 
     private final String name;
 
@@ -94,14 +94,13 @@ public class IOThread extends ZObject implements IPollEvents
 
     public final Poller getPoller(IOObject io)
     {
-        Object old = plugs.put(io, io);
-        assert (old == null);
+        boolean added = plugs.add(io);
+        assert (added);
         return poller;
     }
 
     public final void givePoller(IOObject io)
     {
-        assert (plugs.containsKey(io));
         plugs.remove(io);
         if (plugs.isEmpty() && reaping) {
             sendReaped(this);

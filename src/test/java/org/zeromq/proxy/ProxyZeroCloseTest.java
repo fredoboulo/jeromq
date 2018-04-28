@@ -7,7 +7,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
-import org.zeromq.Utils;
+import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 
 import zmq.Helper;
@@ -18,73 +18,73 @@ import zmq.Helper;
  */
 public class ProxyZeroCloseTest
 {
-    private static class Proxy implements Runnable
+    private static class ProxyPubSub implements Runnable
     {
-        private final ZMQ.Context ctx;
-        private final ZMQ.Socket  xsubSocket;
-        private final ZMQ.Socket  xpubSocket;
+        private final ZContext   ctx;
+        private final ZMQ.Socket xsubSocket;
+        private final ZMQ.Socket xpubSocket;
 
         private final CountDownLatch latch = new CountDownLatch(1);
 
-        private final int subPort;
-        private final int pubPort;
-
-        public Proxy(ZMQ.Context ctx, int subPort, int pubPort)
+        public ProxyPubSub(ZContext ctx)
         {
-            xsubSocket = ctx.socket(ZMQ.XSUB);
-            xpubSocket = ctx.socket(ZMQ.XPUB);
-            this.subPort = subPort;
-            this.pubPort = pubPort;
+            xsubSocket = ctx.createSocket(ZMQ.XSUB);
+            xpubSocket = ctx.createSocket(ZMQ.XPUB);
             this.ctx = ctx;
         }
 
         @Override
         public void run()
         {
-            xsubSocket.bind("tcp://127.0.0.1:" + subPort);
-            xpubSocket.bind("tcp://127.0.0.1:" + pubPort);
+            try {
+                xsubSocket.bindToRandomPort("tcp://127.0.0.1");
+                xpubSocket.bindToRandomPort("tcp://127.0.0.1");
 
-            latch.countDown();
-            ZMQ.proxy(xsubSocket, xpubSocket, null);
+                latch.countDown();
+                ZMQ.proxy(xsubSocket, xpubSocket, null);
 
-            System.out.printf("|Proxy|");
+            }
+            catch (Throwable e) {
+                latch.countDown();
+            }
+            finally {
+                System.out.printf("<Proxy/>");
+            }
         }
 
         public void stopProxyThread()
         {
             try {
-                if ((xpubSocket != null) && (xsubSocket != null)) {
-                    System.out.printf("Sockets<");
-                    xpubSocket.setLinger(0);
-                    xpubSocket.unbind("tcp://127.0.0.1:" + pubPort);
-                    xpubSocket.close();
+                System.out.printf("<Sockets>");
+                xpubSocket.setLinger(0);
+                xpubSocket.close();
 
-                    xsubSocket.setLinger(0);
-                    xsubSocket.unbind("tcp://127.0.0.1:" + subPort);
-                    xsubSocket.close();
-                    System.out.printf("/>.......");
-                }
+                xsubSocket.setLinger(-1);
+                xsubSocket.close();
+                System.out.printf("</Sockets>");
             }
             finally {
-                System.out.printf("Context<");
+                System.out.printf("<Context>");
                 ctx.close();
-                System.out.printf("/>.....");
+                System.out.printf("</Context>");
             }
         }
     }
 
     @Test
-    public void testLoop600() throws Exception
+    public void testCloseSocketsAsynchronously() throws Exception
     {
-        testProxyClose(600, 10);
+        testProxyClose(600, 10, true);
     }
 
-    private void testProxyClose(int loops, long sleep) throws InterruptedException, IOException
+    private void testProxyClose(int loops, long sleep, boolean commandLine) throws InterruptedException, IOException
     {
         for (int index = 0; index < loops; ++index) {
-            System.out.printf(Helper.rewind(129), index);
-            System.out.printf("Starting Test #%-4d (", index);
-            Proxy p = new Proxy(ZMQ.context(1), Utils.findOpenPort(), Utils.findOpenPort());
+            if (commandLine) {
+                System.out.printf(Helper.rewind(129), index);
+            }
+            System.out.printf("Starting Test #%-4d ", index);
+            ProxyPubSub p = new ProxyPubSub(new ZContext());
             ExecutorService executor = Executors.newFixedThreadPool(1);
             executor.submit(p);
             p.latch.await();
@@ -93,7 +93,45 @@ public class ProxyZeroCloseTest
             executor.shutdown();
             executor.awaitTermination(30, TimeUnit.SECONDS);
 
-            System.out.printf(").Finished.", index);
+            System.out.printf(".Finished.", index);
+            if (!commandLine) {
+                System.out.println();
+            }
+        }
+        System.out.println();
+    }
+
+    @Test
+    public void testCloseContext() throws Exception
+    {
+        testCloseContext(600, 10, true);
+    }
+
+    private void testCloseContext(int loops, long sleep, boolean commandLine) throws InterruptedException, IOException
+    {
+        for (int index = 0; index < loops; ++index) {
+            if (commandLine) {
+                System.out.printf(Helper.rewind(131), index);
+            }
+            System.out.printf("Closing context Test #%-4d ", index);
+            ZContext ctx = new ZContext();
+            ProxyPubSub p = new ProxyPubSub(ctx);
+            ExecutorService executor = Executors.newFixedThreadPool(1);
+            executor.submit(p);
+            p.latch.await();
+            ZMQ.msleep(sleep);
+
+            System.out.printf("<Context>");
+            ctx.close();
+            System.out.printf("</Context>");
+
+            executor.shutdown();
+            executor.awaitTermination(30, TimeUnit.SECONDS);
+
+            System.out.printf(".Finished.", index);
+            if (!commandLine) {
+                System.out.println();
+            }
         }
         System.out.println();
     }

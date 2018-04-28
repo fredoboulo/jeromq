@@ -1,11 +1,10 @@
 package zmq;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import zmq.io.IOThread;
@@ -19,7 +18,7 @@ public abstract class Own extends ZObject
 
     //  True if termination was already initiated. If so, we can destroy
     //  the object if there are no more child objects or pending term acks.
-    private final AtomicBoolean terminating = new AtomicBoolean();
+    private boolean terminating = false;
 
     //  Sequence number of the last command sent to this object.
     private final AtomicLong sendSeqnum;
@@ -37,7 +36,7 @@ public abstract class Own extends ZObject
     private final Set<Own> owned;
 
     //  List of children we have to wait for term ack before we can destroy the object.
-    private final List<Object> pendingAcks = new CopyOnWriteArrayList<>();
+    private final List<Object> pendingAcks = new ArrayList<>();
 
     public final Errno errno;
 
@@ -137,7 +136,7 @@ public abstract class Own extends ZObject
 
         //  When shutting down we can ignore termination requests from owned
         //  objects. The termination request was already sent to the object.
-        if (terminating.get()) {
+        if (terminating) {
             // but we can still check for termination acknowledgments ...
             checkTermAcks();
             return;
@@ -158,7 +157,7 @@ public abstract class Own extends ZObject
 
         //  If the object is already being shut down, new owned objects are
         //  immediately asked to terminate. Note that linger is set to zero.
-        if (terminating.get()) {
+        if (terminating) {
             registerTermAcks(object);
             sendTerm(object, 0);
             return;
@@ -172,7 +171,7 @@ public abstract class Own extends ZObject
     {
         //  If termination is already underway, there's no point
         //  in starting it anew.
-        if (terminating.get()) {
+        if (terminating) {
             return;
         }
 
@@ -190,7 +189,7 @@ public abstract class Own extends ZObject
     //  Returns true if the object is in process of termination.
     protected final boolean isTerminating()
     {
-        return terminating.get();
+        return terminating;
     }
 
     //  Term handler is protected rather than private so that it can
@@ -200,8 +199,8 @@ public abstract class Own extends ZObject
     protected void processTerm(int linger)
     {
         //  Double termination should never happen.
-        assert (!terminating.get());
-        terminating.set(true);
+        assert (!terminating);
+        terminating = true;
 
         //  Send termination request to all owned objects.
         for (Own it : owned) {
@@ -252,7 +251,7 @@ public abstract class Own extends ZObject
 
     private void checkTermAcks()
     {
-        if (terminating.get() && processedSeqnum == sendSeqnum.get() && pendingAcks.isEmpty()) {
+        if (terminating && processedSeqnum == sendSeqnum.get() && pendingAcks.isEmpty()) {
             //  Sanity check. There should be no active children at this point.
             assert (owned.isEmpty()) : owned;
 

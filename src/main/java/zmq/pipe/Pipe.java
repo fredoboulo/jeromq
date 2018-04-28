@@ -392,6 +392,7 @@ public class Pipe extends ZObject
     @Override
     protected void processPipeTermAck(State peerState)
     {
+        assert (state == State.TERM_ACK_SENT || state == State.TERM_REQ_SENT_1 || state == State.TERM_REQ_SENT_2);
         assert (peerState == State.TERM_ACK_SENT || peerState == State.TERM_REQ_SENT_1
                 || peerState == State.TERM_REQ_SENT_2);
 
