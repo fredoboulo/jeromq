@@ -135,7 +135,7 @@
                 <includeTestSourceDirectory>true</includeTestSourceDirectory>
                 <configLocation>${project.basedir}/src/checkstyle/checks.xml</configLocation>
                 <failOnViolation>true</failOnViolation>
-                <excludes>**/guide/*</excludes>
+                <excludes>**/guide/**</excludes>
             </configuration>
           </execution>
         </executions>
@@ -220,7 +220,7 @@
                         <limit implementation="org.jacoco.report.check.Limit">
                           <counter>COMPLEXITY</counter>
                           <value>COVEREDRATIO</value>
-                          <minimum>0.60</minimum>
+                          <minimum>0.55</minimum>
                         </limit>
                       </limits>
                     </rule>
