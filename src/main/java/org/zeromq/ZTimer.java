@@ -1,36 +1,25 @@
 package org.zeromq;
 
-import zmq.util.Draft;
 import zmq.util.Timers;
 
-/**
- * Manages set of timers.
- *
- * Timers can be added with a given interval, when the interval of time expires after addition, handler method is executed with given arguments.
- * Timer is repetitive and will be executed over time until canceled.
- *
- * This is a DRAFT class, and may change without notice.
- */
-@Draft
 public final class ZTimer
 {
-    /**
-     * Opaque representation of a timer.
-     */
-    public static final class Timer
+    public static class Timer
     {
         private final Timers.Timer delegate;
 
-        Timer(Timers.Timer delegate)
+        private Timer(Timers.Timer delegate)
         {
             this.delegate = delegate;
         }
+
+        Timer(long interval, Handler handler, Object... args)
+        {
+            this(new Timers.Timer(interval, handler, args));
+        }
     }
 
-    /**
-     * Called when the timer has been expired.
-     */
-    public interface Handler extends Timers.Handler
+    public static interface Handler extends Timers.Handler
     {
     }
 
@@ -53,7 +42,6 @@ public final class ZTimer
 
     /**
      * Changes the interval of the timer.
-     *
      * This method is slow, cancelling existing and adding a new timer yield better performance.
      * @param timer the timer to change the interval to.
      * @return true if set, otherwise false.
@@ -65,7 +53,6 @@ public final class ZTimer
 
     /**
      * Reset the timer.
-     *
      * This method is slow, cancelling existing and adding a new timer yield better performance.
      * @param timer the timer to reset.
      * @return true if reset, otherwise false.
@@ -77,7 +64,6 @@ public final class ZTimer
 
     /**
      * Cancel a timer.
-     *
      * @param timer the timer to cancel.
      * @return true if cancelled, otherwise false.
      */
@@ -88,7 +74,6 @@ public final class ZTimer
 
     /**
      * Returns the time in millisecond until the next timer.
-     *
      * @return the time in millisecond until the next timer.
      */
     public long timeout()
@@ -98,7 +83,6 @@ public final class ZTimer
 
     /**
      * Execute the timers.
-     *
      * @return the number of timers triggered.
      */
     public int execute()
@@ -106,11 +90,6 @@ public final class ZTimer
         return timer.execute();
     }
 
-    /**
-     * Sleeps until at least one timer can be executed and execute the timers.
-     *
-     * @return the number of timers triggered.
-     */
     public int sleepAndExecute()
     {
         return timer.sleepAndExecute();

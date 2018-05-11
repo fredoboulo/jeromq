@@ -15,6 +15,7 @@ import org.zeromq.ZMQ.Socket;
 import org.zeromq.ZMsg;
 import org.zeromq.ZPoller;
 import org.zeromq.ZProxy;
+import org.zeromq.ZTimer;
 import org.zeromq.ZProxy.Plug;
 
 //
@@ -35,10 +36,13 @@ public class Asyncsrv
     private static final Random        rand    = new Random(System.nanoTime());
     private static final AtomicInteger counter = new AtomicInteger();
 
-    private static class Client extends ZActor.SimpleActor
+    private static class Client extends ZActor.SimpleActor implements ZTimer.Handler
     {
         private int          requestNbr = 0;
         private final String identity   = String.format("%04X-%04X", counter.incrementAndGet(), rand.nextInt());
+        private final ZTimer timer      = new ZTimer();
+        private ZTimer.Timer handle;
+        private Socket       client;
 
         @Override
         public List<Socket> createSockets(ZContext ctx, Object... args)
@@ -49,10 +53,17 @@ public class Asyncsrv
         @Override
         public void start(Socket pipe, List<Socket> sockets, ZPoller poller)
         {
-            Socket client = sockets.get(0);
+            client = sockets.get(0);
             client.setIdentity(identity.getBytes(ZMQ.CHARSET));
             client.connect("tcp://localhost:5570");
             poller.register(client, ZPoller.POLLIN | ZPoller.OUT);
+            handle = timer.add(100, this);
+        }
+
+        @Override
+        public long looping(Socket pipe, ZPoller poller)
+        {
+            return timer.timeout();
         }
 
         @Override
@@ -63,12 +74,28 @@ public class Asyncsrv
                 ZFrame content = msg.pop();
                 System.out.println(identity + " " + content);
             }
-            if ((events & ZPoller.OUT) == ZPoller.OUT) {
-                ZMQ.msleep(100);
-                socket.send(String.format("request #%02d - %s", ++requestNbr, identity));
-            }
 
             return true;
+        }
+
+        @Override
+        public boolean looped(Socket pipe, ZPoller poller)
+        {
+            timer.execute();
+            return super.looped(pipe, poller);
+        }
+
+        @Override
+        public void time(Object... args)
+        {
+            client.send(String.format("request #%02d - %s", ++requestNbr, identity));
+        }
+
+        @Override
+        public boolean destroyed(ZContext ctx, Socket pipe, ZPoller poller)
+        {
+            timer.cancel(handle);
+            return super.destroyed(ctx, pipe, poller);
         }
     }
 
