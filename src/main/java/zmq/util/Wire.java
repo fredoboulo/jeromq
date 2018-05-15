@@ -12,12 +12,13 @@ public class Wire
     {
     }
 
-    public static int getUInt16(byte[] bytes)
+    // TODO check short and 2-bytes
+    public static short getUInt16(byte[] bytes)
     {
-        return (bytes[0] & 0xff) << 8 | bytes[1] & 0xff;
+        return (short) ((bytes[0] & 0xff) << 8 | bytes[1] & 0xff);
     }
 
-    public static byte[] putUInt16(int value)
+    public static byte[] putUInt16(long value)
     {
         assert (value >= 0); // it has to be an *unsigned* int
         byte[] bytes = new byte[2];
@@ -38,9 +39,9 @@ public class Wire
         return msg.getInt(offset);
     }
 
-    public static int getUInt16(ByteBuffer buf, int offset)
+    public static short getUInt16(ByteBuffer buf, int offset)
     {
-        return (buf.get(offset) & 0xff) << 8 | (buf.get(offset + 1) & 0xff);
+        return (short) ((buf.get(offset) & 0xff) << 8 | (buf.get(offset + 1) & 0xff));
     }
 
     public static int getUInt32(ByteBuffer buf, int offset)
@@ -55,7 +56,7 @@ public class Wire
                 | (bytes[offset + 3] & 0xff);
     }
 
-    public static Msg putUInt16(Msg msg, int value)
+    public static Msg putUInt16(Msg msg, long value)
     {
         msg.put((byte) ((value >>> 8) & 0xff));
         msg.put((byte) ((value & 0xff)));
@@ -63,7 +64,7 @@ public class Wire
         return msg;
     }
 
-    public static byte[] putUInt32(int value)
+    public static byte[] putUInt32(long value)
     {
         assert (value >= 0); // it has to be an *unsigned* int
         byte[] bytes = new byte[4];
@@ -76,7 +77,15 @@ public class Wire
         return bytes;
     }
 
-    public static ByteBuffer putUInt32(ByteBuffer buf, int value)
+    public static ByteBuffer putUInt16(ByteBuffer buf, long value)
+    {
+        buf.put((byte) ((value >>> 8) & 0xff));
+        buf.put((byte) ((value & 0xff)));
+
+        return buf;
+    }
+
+    public static ByteBuffer putUInt32(ByteBuffer buf, long value)
     {
         buf.put((byte) ((value >>> 24) & 0xff));
         buf.put((byte) ((value >>> 16) & 0xff));
@@ -86,7 +95,7 @@ public class Wire
         return buf;
     }
 
-    public static Msg putUInt32(Msg msg, int value)
+    public static Msg putUInt32(Msg msg, long value)
     {
         msg.put((byte) ((value >>> 24) & 0xff));
         msg.put((byte) ((value >>> 16) & 0xff));

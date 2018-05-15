@@ -43,6 +43,29 @@ public class ZCert
 
     public ZCert(String publickey)
     {
+        this(publickey, null);
+    }
+
+    public ZCert()
+    {
+        KeyPair keypair = ZMQ.Curve.generateKeyPair();
+        publicKey = ZMQ.Curve.z85Decode(keypair.publicKey);
+        publicTxt = keypair.publicKey;
+        secretKey = ZMQ.Curve.z85Decode(keypair.secretKey);
+        secretTxt = keypair.secretKey;
+    }
+
+    public ZCert(byte[] publickey, byte[] secretkey)
+    {
+        publicKey = publickey;
+        publicTxt = ZMQ.Curve.z85Encode(publickey);
+        secretKey = secretkey;
+        secretTxt = ZMQ.Curve.z85Encode(secretkey);
+    }
+
+    public ZCert(String publickey, String secretkey)
+    {
+        assert (publickey != null);
         if (publickey.length() == Options.CURVE_KEYSIZE) {
             // in binary-format
             publicKey = publickey.getBytes(ZMQ.CHARSET);
@@ -59,17 +82,21 @@ public class ZCert
             publicKey = Z85.decode(publickey);
             publicTxt = publickey;
         }
-        secretKey = null;
-        secretTxt = null;
-    }
-
-    public ZCert()
-    {
-        KeyPair keypair = ZMQ.Curve.generateKeyPair();
-        publicKey = ZMQ.Curve.z85Decode(keypair.publicKey);
-        publicTxt = keypair.publicKey;
-        secretKey = ZMQ.Curve.z85Decode(keypair.secretKey);
-        secretTxt = keypair.secretKey;
+        if (secretkey == null) {
+            secretKey = null;
+            secretTxt = null;
+        }
+        else if (secretkey.length() == Options.CURVE_KEYSIZE) {
+            // in binary-format
+            secretKey = secretkey.getBytes(ZMQ.CHARSET);
+            secretTxt = ZMQ.Curve.z85Encode(secretKey);
+        }
+        else {
+            assert (secretkey.length() == Options.CURVE_KEYSIZE_Z85);
+            // Z85-Coded
+            secretKey = Z85.decode(secretkey);
+            secretTxt = secretkey;
+        }
     }
 
     public byte[] getPublicKey()

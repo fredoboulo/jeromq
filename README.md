@@ -121,6 +121,59 @@ public class hwserver
 }
 ```
 
+Here is the same server without creating a context and with control on ending the server:
+
+```java
+import java.util.Arrays;
+import java.util.List;
+
+import org.zeromq.ZActor;
+import org.zeromq.ZActor.Actor;
+import org.zeromq.ZContext;
+import org.zeromq.ZMQ;
+import org.zeromq.ZMQ.Socket;
+import org.zeromq.ZPoller;
+
+public class hwserver
+{
+    public static void main(String[] args) throws Exception
+    {
+        Actor actor = new ZActor.SimpleActor()
+        {
+            @Override
+            public List<Socket> createSockets(ZContext ctx, Object... args)
+            {
+                return Arrays.asList(ctx.createSocket(ZMQ.REP));
+            }
+
+            @Override
+            public void start(Socket pipe, List<Socket> sockets, ZPoller poller)
+            {
+                Socket socket = sockets.get(0);
+                socket.bind("tcp://*:5555");
+                poller.register(socket, ZPoller.IN);
+            }
+
+            @Override
+            public boolean stage(Socket socket, Socket pipe, ZPoller poller, int events)
+            {
+                byte[] reply = socket.recv(0);
+                System.out.println(String.format("Received : [%s]", new String(reply, ZMQ.CHARSET)));
+
+                String response = "world";
+                socket.send(response.getBytes(ZMQ.CHARSET), 0);
+
+                return true;
+            }
+        };
+        ZActor rep = new ZActor(actor, "lock-code");
+
+        ZMQ.sleep(20); // let the server work ...
+        rep.send("anything-sent-will-end-the-server");
+        rep.exit().awaitSilent();
+    }
+}
+```
 ### More examples
 
 The JeroMQ [translations of the zguide examples](src/test/java/guide) are a good
