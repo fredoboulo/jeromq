@@ -37,6 +37,14 @@ public class Clock
         return System.currentTimeMillis();
     }
 
+    /**
+     * High precision timestamp in microseconds.
+     */
+    public static long monoMS()
+    {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+    }
+
     //  CPU's timestamp counter. Returns 0 if it's not available.
     public static long rdtsc()
     {
