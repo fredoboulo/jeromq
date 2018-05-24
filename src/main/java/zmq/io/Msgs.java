@@ -1,7 +1,9 @@
 package zmq.io;
 
+import java.nio.ByteBuffer;
+
 import zmq.Msg;
-import zmq.ZMQ;
+import zmq.util.Wire;
 
 public class Msgs
 {
@@ -52,8 +54,8 @@ public class Msgs
         final int length = data.length();
         assert (length < 256);
 
-        msg.put((byte) length);
-        msg.put(data.getBytes(ZMQ.CHARSET));
+        ByteBuffer buf = msg.buf();
+        Wire.putSmallString(buf, data);
 
         return msg;
     }

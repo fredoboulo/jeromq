@@ -20,6 +20,7 @@ import zmq.io.coder.IEncoder;
 import zmq.io.mechanism.Mechanisms;
 import zmq.io.net.SelectorProviderChooser;
 import zmq.msg.MsgAllocator;
+import zmq.socket.Sockets;
 import zmq.util.Draft;
 import zmq.util.Z85;
 
@@ -826,6 +827,11 @@ public class ZMQ
         public SocketType getSocketType()
         {
             return SocketType.type(getType());
+        }
+
+        public String typename()
+        {
+            return Sockets.name(getType());
         }
 
         /**
@@ -3586,6 +3592,11 @@ public class ZMQ
             return pos;
         }
 
+        public void unregister(PollItem item)
+        {
+            unregisterInternal(item);
+        }
+
         /**
          * Unregister a Socket for polling on the specified events.
          *
@@ -3618,7 +3629,7 @@ public class ZMQ
                 if (item == null) {
                     continue;
                 }
-                if (item.socket == socket || item.getRawSocket() == socket) {
+                if (item == socket || item.socket == socket || item.getRawSocket() == socket) {
                     items[i] = null;
 
                     freeSlots.add(i);

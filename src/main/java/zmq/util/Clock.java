@@ -38,7 +38,7 @@ public class Clock
     }
 
     /**
-     * High precision timestamp in microseconds.
+     * Monotonic precision timestamp in milliseconds.
      */
     public static long monoMS()
     {
