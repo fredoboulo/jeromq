@@ -17,9 +17,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.zeromq.ZMQ.Context;
 import org.zeromq.ZMQ.Socket;
+import org.zeromq.ZMQ.Socket.Mechanism;
 
 import zmq.ZError;
-import zmq.api.AMechanism;
 import zmq.msg.MsgAllocator;
 import zmq.msg.MsgAllocatorDirect;
 import zmq.util.Errno;
@@ -287,8 +287,8 @@ public class TestZMQ
         server = socket.isAsServerCurve();
         assertThat(server, is(true));
 
-        AMechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(AMechanism.CURVE));
+        Mechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(Mechanism.CURVE));
 
         socket.close();
     }
@@ -311,8 +311,8 @@ public class TestZMQ
         boolean server = socket.getCurveServer();
         assertThat(server, is(false));
 
-        AMechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(AMechanism.CURVE));
+        Mechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(Mechanism.CURVE));
 
         socket.close();
     }
@@ -323,8 +323,8 @@ public class TestZMQ
         final Socket socket = ctx.socket(ZMQ.REQ);
         assertThat(socket, notNullValue());
 
-        AMechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(AMechanism.NULL));
+        Mechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(Mechanism.NULL));
 
         byte[] key = new byte[32];
         Arrays.fill(key, (byte) 0x2);
@@ -339,7 +339,7 @@ public class TestZMQ
         assertThat(server, is(false));
 
         mechanism = socket.getMechanism();
-        assertThat(mechanism, is(AMechanism.CURVE));
+        assertThat(mechanism, is(Mechanism.CURVE));
         socket.close();
     }
 
@@ -361,8 +361,8 @@ public class TestZMQ
         boolean server = socket.getCurveServer();
         assertThat(server, is(false));
 
-        AMechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(AMechanism.CURVE));
+        Mechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(Mechanism.CURVE));
 
         socket.close();
     }
@@ -698,8 +698,8 @@ public class TestZMQ
         boolean server = socket.getPlainServer();
         assertThat(server, is(false));
 
-        AMechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(AMechanism.PLAIN));
+        Mechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(Mechanism.PLAIN));
 
         socket.close();
     }
@@ -719,8 +719,8 @@ public class TestZMQ
         boolean server = socket.getPlainServer();
         assertThat(server, is(false));
 
-        AMechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(AMechanism.PLAIN));
+        Mechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(Mechanism.PLAIN));
 
         socket.close();
     }
@@ -744,8 +744,8 @@ public class TestZMQ
         server = socket.getAsServerPlain();
         assertThat(server, is(true));
 
-        AMechanism mechanism = socket.getMechanism();
-        assertThat(mechanism, is(AMechanism.PLAIN));
+        Mechanism mechanism = socket.getMechanism();
+        assertThat(mechanism, is(Mechanism.PLAIN));
 
         socket.close();
     }

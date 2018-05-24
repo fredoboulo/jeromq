@@ -15,10 +15,12 @@ import zmq.api.AMsg;
 import zmq.api.APollItem;
 import zmq.api.AProvider;
 import zmq.api.ASocket;
+import zmq.api.ATimer;
 import zmq.io.Metadata;
 import zmq.io.mechanism.Mechanisms;
 import zmq.io.mechanism.curve.Curve;
 import zmq.poll.PollItem;
+import zmq.util.Timers;
 import zmq.util.Z85;
 
 public class JeromqProvider implements AProvider
@@ -146,5 +148,11 @@ public class JeromqProvider implements AProvider
     public int versionPatch()
     {
         return zmq.ZMQ.ZMQ_VERSION_PATCH;
+    }
+
+    @Override
+    public ATimer timer()
+    {
+        return new Timers();
     }
 }
