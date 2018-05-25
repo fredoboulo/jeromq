@@ -132,7 +132,7 @@ public class TestPushPullThreadedTcp
         threadPool.submit(client);
 
         threadPool.shutdown();
-        threadPool.awaitTermination(100000, TimeUnit.SECONDS);
+        threadPool.awaitTermination(100, TimeUnit.SECONDS);
         long end = System.currentTimeMillis();
         System.out.println("Worker received " + worker.idx + " messages");
         assertThat("Unable to send messages", client.finished.get(), is(true));

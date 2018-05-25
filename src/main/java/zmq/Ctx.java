@@ -202,6 +202,15 @@ public class Ctx implements AContext
         tag = 0xdeadbeef;
     }
 
+    /**
+     * @deprecated use {@link #isAlive()} instead
+     */
+    @Deprecated
+    public boolean checkTag()
+    {
+        return isAlive();
+    }
+
     //  Returns false if object is not a context.
     //
     //  This will also return false if terminate() has been called.
@@ -303,6 +312,15 @@ public class Ctx implements AContext
         }
     }
 
+    /**
+     * @deprecated use {@link #setOption(int, int)} instead
+     */
+    @Deprecated
+    public boolean set(int option, int optval)
+    {
+        return setOption(option, optval);
+    }
+
     @Override
     public boolean setOption(int option, int optval)
     {
@@ -346,6 +364,15 @@ public class Ctx implements AContext
             return false;
         }
         return true;
+    }
+
+    /**
+     * @deprecated use {@link #getOption(int)} instead
+     */
+    @Deprecated
+    public int get(int option)
+    {
+        return getOption(option);
     }
 
     @Override

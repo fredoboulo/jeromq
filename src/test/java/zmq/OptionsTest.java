@@ -67,21 +67,21 @@ public class OptionsTest
     public void testRate()
     {
         options.setSocketOpt(ZMQ.ZMQ_RATE, 10);
-        assertThat(options.getSocketOpt(ZMQ.ZMQ_RATE), is((Object) 10));
+        assertThat(options.getSocketOpt(ZMQ.ZMQ_RATE), is((Object) 10L));
     }
 
     @Test
     public void testRecoveryIvl()
     {
         options.setSocketOpt(ZMQ.ZMQ_RECOVERY_IVL, 11);
-        assertThat(options.getSocketOpt(ZMQ.ZMQ_RECOVERY_IVL), is((Object) 11));
+        assertThat(options.getSocketOpt(ZMQ.ZMQ_RECOVERY_IVL), is((Object) 11L));
     }
 
     @Test
     public void testMulticastHops()
     {
         options.setSocketOpt(ZMQ.ZMQ_MULTICAST_HOPS, 12);
-        assertThat(options.getSocketOpt(ZMQ.ZMQ_MULTICAST_HOPS), is((Object) 12));
+        assertThat(options.getSocketOpt(ZMQ.ZMQ_MULTICAST_HOPS), is((Object) 12L));
     }
 
     @Test
