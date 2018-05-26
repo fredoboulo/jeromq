@@ -216,8 +216,13 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         }
     }
 
-    @Override
     public final boolean setSocketOpt(int option, Object optval)
+    {
+        return setOption(option, optval);
+    }
+
+    @Override
+    public final boolean setOption(int option, Object optval)
     {
         if (ctxTerminated) {
             errno.set(ZError.ETERM);
@@ -239,8 +244,13 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         return rc;
     }
 
+    public final int getSocketOpt(int option)
+    {
+        return (int) getOption(option);
+    }
+
     @Override
-    public final long getSocketOpt(int option)
+    public final long getOption(int option)
     {
         if (ctxTerminated) {
             errno.set(ZError.ETERM);
@@ -276,8 +286,13 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         throw new IllegalArgumentException(val + " is neither an integer or a boolean for option " + option);
     }
 
-    @Override
     public final Object getSocketOptx(int option)
+    {
+        return getOptionObject(option);
+    }
+
+    @Override
+    public final Object getOptionObject(int option)
     {
         if (ctxTerminated) {
             errno.set(ZError.ETERM);
