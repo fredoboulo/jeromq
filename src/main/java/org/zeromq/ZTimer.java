@@ -7,7 +7,7 @@ import zmq.util.Timers;
  * Manages set of timers.
  *
  * Timers can be added with a given interval, when the interval of time expires after addition, handler method is executed with given arguments.
- * Timer is repetitive and will be executed over time until canceled. 
+ * Timer is repetitive and will be executed over time until canceled.
  *
  * This is a DRAFT class, and may change without notice.
  */
@@ -17,25 +17,20 @@ public final class ZTimer
     /**
      * Opaque representation of a timer.
      */
-    public static class Timer
+    public static final class Timer
     {
         private final Timers.Timer delegate;
 
-        private Timer(Timers.Timer delegate)
+        Timer(Timers.Timer delegate)
         {
             this.delegate = delegate;
-        }
-
-        Timer(long interval, Handler handler, Object... args)
-        {
-            this(new Timers.Timer(interval, handler, args));
         }
     }
 
     /**
      * Called when the timer has been expired.
      */
-    public static interface Handler extends Timers.Handler
+    public interface Handler extends Timers.Handler
     {
     }
 

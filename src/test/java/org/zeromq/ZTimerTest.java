@@ -12,10 +12,11 @@ import org.junit.Test;
 import org.zeromq.ZTimer.Timer;
 
 import zmq.ZMQ;
+import zmq.util.TimersTest;
 
 public class ZTimerTest
 {
-    private static final Timer NON_EXISTENT = new ZTimer.Timer(0, null);
+    private static final Timer NON_EXISTENT = new ZTimer.Timer(TimersTest.NON_EXISTENT);
     private ZTimer             timers;
     private AtomicBoolean      invoked      = new AtomicBoolean();
 
@@ -34,7 +35,6 @@ public class ZTimerTest
     {
         timers = new ZTimer();
         invoked = new AtomicBoolean();
-
     }
 
     @Test
@@ -79,7 +79,7 @@ public class ZTimerTest
     }
 
     @Test
-    public void testTimeoutnoActiveTimers()
+    public void testTimeoutNoActiveTimers()
     {
         long timeout = timers.timeout();
         assertThat(timeout, is(-1L));
@@ -117,7 +117,6 @@ public class ZTimerTest
         // Wait until the end
         timers.sleepAndExecute();
         assertThat(invoked.get(), is(true));
-        invoked.set(false);
     }
 
     @Test
@@ -129,7 +128,6 @@ public class ZTimerTest
         // Wait until the end
         timers.sleepAndExecute();
         assertThat(invoked.get(), is(true));
-        invoked.set(false);
 
         //  Wait half the time and check again
         long timeout = timers.timeout();
@@ -167,7 +165,6 @@ public class ZTimerTest
         // Wait until the end
         timers.sleepAndExecute();
         assertThat(invoked.get(), is(true));
-        invoked.set(false);
     }
 
     @Test
@@ -182,7 +179,6 @@ public class ZTimerTest
 
         timers.sleepAndExecute();
         assertThat(invoked.get(), is(true));
-        invoked.set(false);
     }
 
     @Test

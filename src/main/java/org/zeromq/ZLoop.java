@@ -6,13 +6,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.ListIterator;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.zeromq.ZMQ.Context;
 import org.zeromq.ZMQ.PollItem;
 import org.zeromq.ZMQ.Poller;
+import org.zeromq.ZMQ.Socket;
 
 import zmq.ZError;
 import zmq.util.Clock;
+import zmq.util.Draft;
 
 /**
  * The ZLoop class provides an event-driven reactor pattern. The reactor
@@ -26,7 +30,7 @@ public class ZLoop
     {
         /**
          * Called back when it's time to execute an action
-         * @param loop the loop itself 
+         * @param loop the loop itself
          * @param item the pollitme. Possibly null
          * @param arg the optional argument
          * @return -1 to stop the loop, any other value to continue it
@@ -35,7 +39,7 @@ public class ZLoop
     }
 
     /**
-     * Opaque tagging interface to remove timers, pollers and readers 
+     * Opaque tagging interface to manage timers, pollers and readers
      */
     public interface Handle
     {
@@ -46,6 +50,7 @@ public class ZLoop
         final IZLoopHandler<T> handler; //  Function to execute
         final T                arg;     //  Application argument to poll item
         boolean                deleted; //  Flag as deleted (to clean up later)
+        long                   when;    //  Clock time when alarm goes off
 
         private AbstractHandle(IZLoopHandler<T> handler, T arg)
         {
@@ -57,6 +62,21 @@ public class ZLoop
         {
             return handler.handle(loop, item, arg) != -1;
         }
+
+        private static final Comparator<STimer<?>> COMPARATOR = new Comparator<ZLoop.STimer<?>>()
+        {
+            @Override
+            public int compare(STimer<?> first, STimer<?> second)
+            {
+                if (first.when > second.when) {
+                    return 1;
+                }
+                if (first.when < second.when) {
+                    return -1;
+                }
+                return 0;
+            }
+        };
     }
 
     private static class SReader<T> extends AbstractHandle<T>
@@ -78,14 +98,13 @@ public class ZLoop
     {
         int        tag;   //  Object tag for runtime detection
         final long delay; //  Delay (ms) before executing
-        long       when;  //  Clock time to invoke the ticket
 
         private STicket(long delay, IZLoopHandler<T> handler, T arg)
         {
             super(handler, arg);
             this.tag = TICKET_TAG;
             this.delay = delay;
-            this.when = Clock.monoMS() + delay;
+            this.when = now() + delay;
         }
 
         public void destroy()
@@ -111,32 +130,16 @@ public class ZLoop
 
     private static class STimer<T> extends AbstractHandle<T>
     {
-        int  delay;
-        int  times;
-        long when; //  Clock time when alarm goes off
+        int delay;
+        int times;
 
         public STimer(int delay, int times, IZLoopHandler<T> handler, T arg)
         {
             super(handler, arg);
             this.delay = delay;
             this.times = times;
-            this.when = Clock.monoMS() + delay;
+            this.when = now() + delay;
         }
-
-        private static final Comparator<STimer<?>> COMPARATOR = new Comparator<ZLoop.STimer<?>>()
-        {
-            @Override
-            public int compare(STimer<?> first, STimer<?> second)
-            {
-                if (first.when > second.when) {
-                    return 1;
-                }
-                if (first.when < second.when) {
-                    return -1;
-                }
-                return 0;
-            }
-        };
     }
 
     //  As we pass void * to/from the caller for working with tickets, we
@@ -146,7 +149,7 @@ public class ZLoop
     private final Context          context;     // Context managing the pollers.
     private final List<SReader<?>> readers;     // List of socket readers
     private final List<SPoller<?>> pollers;     // List of poll items
-    private final List<STimer<?>>  timers;      // List of timers
+    private final Set<STimer<?>>   timers;      // List of timers
     private final List<STicket<?>> tickets;     // List of tickets
     private long                   maxTimers;   // Limit on number of timers
     private long                   ticketDelay; // Ticket delay value
@@ -167,7 +170,7 @@ public class ZLoop
 
         readers = new ArrayList<>();
         pollers = new ArrayList<>();
-        timers = new ArrayList<>();
+        timers = new TreeSet<>(AbstractHandle.COMPARATOR);
         newTimers = new ArrayList<>();
         tickets = new ArrayList<>();
     }
@@ -177,13 +180,18 @@ public class ZLoop
         this(ctx.getContext());
     }
 
-    /**
-     * @deprecated no-op behaviour
-     */
-    @Deprecated
     public void destroy()
     {
-        // do nothing
+        readers.clear();
+        pollers.clear();
+        timers.clear();
+        newTimers.clear();
+        tickets.clear();
+    }
+
+    private static long now()
+    {
+        return Clock.monoMS();
     }
 
     //  We hold an array of pollers that matches the pollset, so we can
@@ -218,11 +226,10 @@ public class ZLoop
     private long ticklessTimer()
     {
         //  Calculate tickless timer, up to 1 hour
-        long tickless = Clock.monoMS() + 1000 * 3600;
+        long tickless = now() + 1000 * 3600;
 
         //  Scan timers, which are not sorted
         //  TODO: sort timers properly on insertion
-        timers.sort(STimer.COMPARATOR);
         for (STimer<?> timer : timers) {
             if (tickless > timer.when) {
                 tickless = timer.when;
@@ -232,7 +239,7 @@ public class ZLoop
         if (!tickets.isEmpty() && tickless > tickets.get(0).when) {
             tickless = tickets.get(0).when;
         }
-        long timeout = tickless - Clock.monoMS();
+        long timeout = tickless - now();
         if (timeout < 0) {
             timeout = 0;
         }
@@ -240,10 +247,18 @@ public class ZLoop
         return timeout;
     }
 
-    //  Register socket reader with the reactor. When the reader has messages,
-    //  the reactor will call the handler, passing the arg. 
-    //  If you register the same socket more than once,
-    //  each instance will invoke its corresponding handler.
+    /**
+     * Register socket reader with the reactor.
+     * When the reader has messages, the reactor will call the handler, passing the arg.
+     * If you register the same socket more than once,
+     * each instance will invoke its corresponding handler.
+     *
+     * @param socket the socket to register.
+     * @param handler the handler that will be called upon message reception.
+     * @param arg the optional argument to pass to the handler.
+     *
+     * @return a handle useful for un-registration.
+     */
     public <T> Handle addReader(ZMQ.Socket socket, IZLoopHandler<T> handler, T arg)
     {
         SReader<T> reader = new SReader<>(socket, handler, arg);
@@ -253,8 +268,11 @@ public class ZLoop
         return reader;
     }
 
-    //  Cancel a socket reader from the reactor. If multiple readers exist for
-    //  same socket, cancels ALL of them.
+    /**
+     * Cancels a socket reader from the reactor.
+     *
+     * @param handle the handle of the reader to remove
+     */
     public void removeReader(Handle handle)
     {
         assert (handle instanceof SReader);
@@ -265,8 +283,31 @@ public class ZLoop
         debug("cancel %s reader", reader.socket.typename());
     }
 
-    //  Configure a registered reader to ignore errors. If you do not set this,
-    //  then reader that have errors are removed from the reactor silently.
+    /**
+     * Cancels a socket reader from the reactor. If multiple readers exist for
+     * same socket, cancels ALL of them.
+     * 
+     * @param socket the socket to remove readers for.
+     */
+    public void removeReader(ZMQ.Socket socket)
+    {
+        Iterator<SReader<?>> iter = readers.iterator();
+        while (iter.hasNext()) {
+            SReader<?> reader = iter.next();
+            if (reader.socket == socket) {
+                needRebuild = true;
+                iter.remove();
+            }
+        }
+        debug("cancel %s reader", socket.typename());
+    }
+
+    /**
+     * Configure a registered reader to ignore errors. If you do not set this,
+     * then reader that has errors is removed from the reactor silently.
+     *
+     * @param handle the handle of the reader to make tolerant
+     */
     public void setTolerantReader(Handle handle)
     {
         assert (handle instanceof SReader);
@@ -274,12 +315,18 @@ public class ZLoop
         reader.tolerant = true;
     }
 
-    //  --------------------------------------------------------------------------
-    //  Register pollitem with the reactor. When the pollitem is ready, will call
-    //  the handler, passing the arg. Returns 0 if OK, -1 if there was an error.
-    //  If you register the pollitem more than once, each instance will invoke its
-    //  corresponding handler.
-
+    /**
+     * Register poll item with the reactor.
+     * When the poll item is ready, the reactor will call the handler, passing the arg.
+     * If you register the poll item more than once,
+     * each instance will invoke its corresponding handler.
+     *
+     * @param pollItem the poll item to register.
+     * @param handler the handler that will be called upon message reception.
+     * @param arg the optional argument to pass to the handler.
+     *
+     * @return 0 if OK, -1 if there was an error.
+     */
     public <T> int addPoller(PollItem pollItem, IZLoopHandler<T> handler, T arg)
     {
         Handle handle = poller(pollItem, handler, arg);
@@ -289,6 +336,18 @@ public class ZLoop
         return 0;
     }
 
+    /**
+     * Register poll item with the reactor.
+     * When the poll item is ready, the reactor will call the handler, passing the arg.
+     * If you register the poll item more than once,
+     * each instance will invoke its corresponding handler.
+     *
+     * @param pollItem the poll item to register.
+     * @param handler the handler that will be called upon message reception.
+     * @param arg the optional argument to pass to the handler.
+     *
+     * @return a handle useful for un-registration.
+     */
     public <T> Handle poller(PollItem pollItem, IZLoopHandler<T> handler, T arg)
     {
         if (pollItem.getRawSocket() == null && pollItem.getSocket() == null) {
@@ -439,6 +498,7 @@ public class ZLoop
     //  must set the ticket delay using zloop_set_ticket_delay before creating a
     //  ticket. Returns a handle to the timer that you should use in
     //  zloop_ticket_reset and zloop_ticket_delete.
+    @Draft
     public <T> Handle addTicket(IZLoopHandler<T> handler, T arg)
     {
         assert (ticketDelay > 0);
@@ -450,13 +510,14 @@ public class ZLoop
 
     //  Reset a ticket timer, which moves it to the end of the ticket list and
     //  resets its execution time. This is a very fast operation.
+    @Draft
     public void resetTicket(Handle handle)
     {
         assert (handle instanceof STicket);
         STicket<?> ticket = (STicket<?>) handle;
         assert (ticket.tag == TICKET_TAG);
 
-        ticket.when = Clock.monoMS() + ticket.delay;
+        ticket.when = now() + ticket.delay;
 
         boolean rc = tickets.remove(ticket);
         assert (rc);
@@ -473,7 +534,8 @@ public class ZLoop
      *
      * @param handle the handle of the ticket to delete.
      */
-    public void deleteTicket(Handle handle)
+    @Draft
+    public void removeTicket(Handle handle)
     {
         assert (handle instanceof STicket);
         STicket<?> ticket = (STicket<?>) handle;
@@ -526,7 +588,6 @@ public class ZLoop
     //  returns -1. Event handlers may register new sockets and timers, and
     //  cancel sockets. Returns 0 if interrupted, -1 if cancelled by a
     //  handler, positive on internal error
-
     public int start()
     {
         boolean active = false;
@@ -537,7 +598,7 @@ public class ZLoop
 
         //  Recalculate all timers now
         for (STimer<?> timer : timers) {
-            timer.when = timer.delay + Clock.monoMS();
+            timer.when = timer.delay + now();
         }
 
         //  Main reactor loop
@@ -559,7 +620,7 @@ public class ZLoop
                 break; //  Context has been shut down
             }
             //  Handle any timers that have now expired
-            final long now = Clock.monoMS();
+            final long now = now();
             Iterator<STimer<?>> it = timers.iterator();
             while (it.hasNext()) {
                 STimer<?> timer = it.next();
@@ -583,15 +644,14 @@ public class ZLoop
             while (iter.hasNext()) {
                 STicket<?> ticket = iter.next();
                 if (now >= ticket.when) {
-                    debug("call timer handler");
+                    debug("call ticket handler");
 
                     if (!ticket.deleted) {
                         active = ticket.handle(this, null);
                         if (!active) {
-                            break main; //  TODO Ticket handler signaled break
+                            break; //  Ticket handler signaled break
                         }
                     }
-                    // TODO remove every tickets ?
                     ticket.destroy();
                     iter.remove();
                 }
@@ -607,6 +667,9 @@ public class ZLoop
                 else {
                     break;
                 }
+            }
+            if (!active) {
+                break main; // Ticket handler signaled break
             }
 
             //  Check if timers changed pollset
@@ -638,7 +701,7 @@ public class ZLoop
                         debug("call %s socket handler", reader.socket.typename());
                         active = reader.handle(this, pollset.getItem(itemNbr));
                         if (!active || needRebuild) {
-                            break;
+                            break main;
                         }
                     }
                 }
@@ -647,10 +710,11 @@ public class ZLoop
             for (int itemNbr = 0; itemNbr < pollact.length; itemNbr++) {
                 SPoller<?> poller = pollact[itemNbr];
                 if (pollset.pollerr(itemNbr + readact.length) && !poller.tolerant) {
+                    Socket socket = poller.item.getSocket();
                     warning(
                             "can't poll %s socket (%s, %s)",
-                            poller.item.getSocket() != null ? poller.item.getSocket().getType() : "RAW",
-                            poller.item.getSocket(),
+                            socket != null ? socket.typename() : "RAW",
+                            socket,
                             poller.item.getRawSocket());
 
                     //  Give handler one chance to handle error, then kill
@@ -673,7 +737,7 @@ public class ZLoop
 
                     active = poller.handle(this, poller.item);
                     if (!active || needRebuild) {
-                        break; //  Poller handler signaled break
+                        break main; //  Poller handler signaled break
                     }
                 }
             }

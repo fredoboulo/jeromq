@@ -109,9 +109,9 @@ public class ZLoopTest
 
         loop.start();
 
-        loop.deleteTicket(handle1);
-        loop.deleteTicket(handle2);
-        loop.deleteTicket(handle3);
+        loop.removeTicket(handle1);
+        loop.removeTicket(handle2);
+        loop.removeTicket(handle3);
 
         //  Check whether loop properly ignores zsys_interrupted flag
         //  when asked to
