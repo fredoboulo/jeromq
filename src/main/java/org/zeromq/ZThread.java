@@ -89,7 +89,7 @@ public class ZThread
         Socket pipe = ctx.createSocket(SocketType.PAIR);
 
         if (pipe != null) {
-            pipe.bind(String.format("inproc://zctx-pipe-%d", pipe.hashCode()));
+            pipe.bind(String.format("inproc://zctx-pipe-%d", pipe.uniqueId()));
         }
         else {
             return null;
@@ -101,7 +101,7 @@ public class ZThread
         if (cpipe == null) {
             return null;
         }
-        cpipe.connect(String.format("inproc://zctx-pipe-%d", pipe.hashCode()));
+        cpipe.connect(String.format("inproc://zctx-pipe-%d", pipe.uniqueId()));
 
         //  Prepare child thread
         Thread shim = new ShimThread(ccontext, runnable, args, cpipe);

@@ -1327,6 +1327,14 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         return errno.get();
     }
 
+    /**
+     * Returns the unique ID of the socket within the context.
+     */
+    public int getUniqueId()
+    {
+        return options.socketId;
+    }
+
     private static class SimpleURI
     {
         private final String protocol;

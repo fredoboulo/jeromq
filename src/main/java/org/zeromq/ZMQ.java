@@ -3551,6 +3551,14 @@ public class ZMQ
             return base.errno();
         }
 
+        /**
+         * Returns the unique ID of the socket within the context.
+         */
+        public int uniqueId()
+        {
+            return base.getUniqueId();
+        }
+
         @Override
         public String toString()
         {
