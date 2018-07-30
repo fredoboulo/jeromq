@@ -26,6 +26,7 @@ import zmq.io.mechanism.Mechanisms;
 import zmq.io.net.SelectorProviderChooser;
 import zmq.msg.MsgAllocator;
 import zmq.util.Draft;
+import zmq.util.Errno;
 import zmq.util.Z85;
 
 /**
@@ -3892,7 +3893,8 @@ public class ZMQ
             }
             catch (ZError.IOException e) {
                 if (context.isTerminated()) {
-                    return 0;
+                    new Errno().set(ZMQ.Error.ETERM.code);
+                    return -1;
                 }
                 else {
                     throw (e);
