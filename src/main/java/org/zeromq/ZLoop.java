@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.ListIterator;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -451,15 +451,11 @@ public class ZLoop
 
     public int removeTimer(Object arg)
     {
-<<<<<<< HEAD
         Objects.requireNonNull(arg, "Argument has to be supplied");
-=======
         if (arg instanceof Handle) {
             removeTimer((Handle) arg);
             return 0;
         }
-        assert (arg != null);
->>>>>>> fe601e9... Updated ZLoop to latest
 
         //  We cannot touch self->timers because we may be executing that
         //  from inside the poll loop. So, we hold the arg on the zombie
