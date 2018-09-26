@@ -55,7 +55,7 @@ public class Msgs
         assert (length < 256);
 
         ByteBuffer buf = msg.buf();
-        Wire.putSmallString(buf, data);
+        Wire.putShortString(buf, data);
 
         return msg;
     }

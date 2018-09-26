@@ -134,7 +134,7 @@ public class Wire
     }
 
     //  Put a string to the frame
-    public static void putSmallString(ByteBuffer buf, String value)
+    public static void putShortString(ByteBuffer buf, String value)
     {
         buf.put((byte) value.length());
         buf.put(value.getBytes(ZMQ.CHARSET));
