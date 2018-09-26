@@ -13,6 +13,8 @@ import org.zeromq.ZMQ.PollItem;
 import org.zeromq.ZMQ.Poller;
 import org.zeromq.ZMQ.Socket;
 
+import zmq.util.Clock;
+
 public class ZLoopTest
 {
     private String   received;
@@ -28,10 +30,12 @@ public class ZLoopTest
 
         output = ctx.createSocket(SocketType.PAIR);
         assertThat(output, notNullValue());
-        output.bind("inproc://zloop.test");
+        boolean rc = output.bind("inproc://zloop.test");
+        assertThat(rc, is(true));
         input = ctx.createSocket(SocketType.PAIR);
         assertThat(input, notNullValue());
-        input.connect("inproc://zloop.test");
+        rc = input.connect("inproc://zloop.test");
+        assertThat(rc, is(true));
 
         received = "FAILED";
     }
@@ -50,28 +54,18 @@ public class ZLoopTest
         ZLoop loop = new ZLoop(ctx);
         assertThat(loop, notNullValue());
 
-        ZLoop.IZLoopHandler<Socket> timerEvent = new ZLoop.IZLoopHandler<Socket>()
-        {
-            @Override
-            public int handle(ZLoop loop, PollItem item, Socket arg)
-            {
-                arg.send("PING", 0);
-                return 0;
-            }
+        ZLoop.IZLoopHandler<Socket> timerEvent = (lop, item, arg) -> {
+            arg.send("PING", 0);
+            return 0;
         };
 
-        ZLoop.IZLoopHandler<Socket> socketEvent = new ZLoop.IZLoopHandler<Socket>()
-        {
-            @Override
-            public int handle(ZLoop loop, PollItem item, Socket arg)
-            {
-                received = arg.recvStr(0);
-                // Just end the reactor
-                return -1;
-            }
+        ZLoop.IZLoopHandler<Socket> socketEvent = (lop, item, arg) -> {
+            received = arg.recvStr(0);
+            // Just end the reactor
+            return -1;
         };
 
-        loop.verbose(true);
+        loop.verbose(false);
 
         //  Create a timer that will be cancelled
         Handle handle = loop.timer(1000, 1, timerEvent, input);
@@ -248,21 +242,21 @@ public class ZLoopTest
             @Override
             public int handle(ZLoop loop, PollItem item, Socket arg)
             {
-                final long now = System.currentTimeMillis();
+                final long now = Clock.monoMS();
                 ZLoop.IZLoopHandler<Socket> timerEvent2 = new ZLoop.IZLoopHandler<Socket>()
                 {
                     @Override
                     public int handle(ZLoop loop, PollItem item, Socket arg)
                     {
                         System.out.println("Receive PING");
-                        final long now2 = System.currentTimeMillis();
-                        assertThat(now2 >= now + 10, is(true));
+                        final long now2 = Clock.monoMS();
+                        long threshold = now + 10;
+                        assertThat(now2 >= threshold, is(true));
                         received = arg.recvStr(0);
                         // Just end the reactor
                         return -1;
                     }
                 };
-                System.out.println("Add Timer");
                 // After 10 msec fire a timer that ends the reactor
                 loop.addTimer(10, 1, timerEvent2, arg);
                 return 0;

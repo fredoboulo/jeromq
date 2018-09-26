@@ -31,16 +31,17 @@ public class ZLoop
         /**
          * Called back when it's time to execute an action
          * @param loop the loop itself
-         * @param item the pollitme. Possibly null
+         * @param item the poll item. Possibly null
          * @param arg the optional argument
          * @return -1 to stop the loop, any other value to continue it
          */
-        public int handle(ZLoop loop, PollItem item, T arg);
+        int handle(ZLoop loop, PollItem item, T arg);
     }
 
     /**
      * Opaque tagging interface to manage timers, pollers and readers
      */
+    @Draft
     public interface Handle
     {
     }
@@ -68,10 +69,10 @@ public class ZLoop
             @Override
             public int compare(STimer<?> first, STimer<?> second)
             {
-                if (first.when > second.when) {
+                if (first.when - second.when > 0) {
                     return 1;
                 }
-                if (first.when < second.when) {
+                if (first.when - second.when < 0) {
                     return -1;
                 }
                 return 0;
@@ -259,6 +260,7 @@ public class ZLoop
      *
      * @return a handle useful for un-registration.
      */
+    @Draft
     public <T> Handle addReader(ZMQ.Socket socket, IZLoopHandler<T> handler, T arg)
     {
         SReader<T> reader = new SReader<>(socket, handler, arg);
@@ -273,6 +275,7 @@ public class ZLoop
      *
      * @param handle the handle of the reader to remove
      */
+    @Draft
     public void removeReader(Handle handle)
     {
         assert (handle instanceof SReader);
@@ -289,6 +292,7 @@ public class ZLoop
      * 
      * @param socket the socket to remove readers for.
      */
+    @Draft
     public void removeReader(ZMQ.Socket socket)
     {
         Iterator<SReader<?>> iter = readers.iterator();
@@ -308,6 +312,7 @@ public class ZLoop
      *
      * @param handle the handle of the reader to make tolerant
      */
+    @Draft
     public void setTolerantReader(Handle handle)
     {
         assert (handle instanceof SReader);
@@ -348,6 +353,7 @@ public class ZLoop
      *
      * @return a handle useful for un-registration.
      */
+    @Draft
     public <T> Handle poller(PollItem pollItem, IZLoopHandler<T> handler, T arg)
     {
         if (pollItem.getRawSocket() == null && pollItem.getSocket() == null) {
@@ -359,8 +365,8 @@ public class ZLoop
 
         needRebuild = true;
         debug(
-              "register %s poller (%s, %s)",
-              pollItem.getSocket() != null ? pollItem.getSocket().getType() : "RAW",
+              "register %spoller (%s, %s)",
+              pollItem.getSocket() != null ? " " : "RAW ",
               pollItem.getSocket(),
               pollItem.getRawSocket());
         return poller;
@@ -388,6 +394,7 @@ public class ZLoop
               pollItem.getRawSocket());
     }
 
+    @Draft
     public void removePoller(Handle handle)
     {
         assert (handle instanceof SPoller);
@@ -403,8 +410,13 @@ public class ZLoop
 
     }
 
-    //  Configure a registered poller to ignore errors. If you do not set this,
-    //  then poller that have errors are removed from the reactor silently.
+    /**
+     *  Configure a registered poller to ignore errors.
+     *
+     *  If you do not set this, then poller that have errors are removed from the reactor silently.
+     * @param handle the poller to configure as tolerant towards errors.
+     */
+    @Draft
     public void setTolerantPoller(Handle handle)
     {
         assert (handle instanceof SPoller);
@@ -426,6 +438,19 @@ public class ZLoop
         return 0;
     }
 
+    /**
+     * Registers a timer that expires after some delay and repeats some number of
+     * times. At each expiry, will call the handler, passing the arg. To
+     * run a timer forever, use 0 times.
+     *
+     * @param delay the expiration delay of the timer.
+     * @param times the number of repetitions of the timer. 0 for infinite.
+     * @param handler the callback when timer expires.
+     * @param arg the argument of the callback.
+     *
+     * @return an opaque handle if OK, null if there was an error.
+     */
+    @Draft
     public <T> Handle timer(int delay, int times, IZLoopHandler<T> handler, T arg)
     {
         //  Catch excessive use of timers
@@ -448,7 +473,6 @@ public class ZLoop
     //  --------------------------------------------------------------------------
     //  Cancel all timers for a specific argument (as provided in zloop_timer)
     //  Returns 0 on success.
-
     public int removeTimer(Object arg)
     {
         Objects.requireNonNull(arg, "Argument has to be supplied");
@@ -471,6 +495,13 @@ public class ZLoop
         return 0;
     }
 
+    /**
+     * Cancels a timer related to an opaque handle.
+     *
+     * @param handle the handle of the timer to cancel.
+     * @return true if cancelled, otherwise false.
+     */
+    @Draft
     public boolean removeTimer(Handle handle)
     {
         assert (handle instanceof STimer);
@@ -547,6 +578,7 @@ public class ZLoop
 
     //  Set the ticket delay, which applies to all tickets. If you lower the
     //  delay and there are already tickets created, the results are undefined.
+    @Draft
     public void ticketDelay(long ticketDelay)
     {
         this.ticketDelay = ticketDelay;
@@ -554,6 +586,7 @@ public class ZLoop
 
     //  --------------------------------------------------------------------------
     //  Set verbose tracing of reactor on/off
+    @Draft
     public void verbose(boolean verbose)
     {
         this.verbose = verbose;
@@ -563,6 +596,7 @@ public class ZLoop
     //  signal. This makes it impossible to shut-down message based architectures
     //  like zactors. This method lets you switch off break handling. The default
     //  nonstop setting is off (false).
+    @Draft
     public void nonStop(boolean nonstop)
     {
         this.nonStop = nonstop;
@@ -573,6 +607,7 @@ public class ZLoop
     //  of the reactor. For high-volume cases, use ticket timers. If the hard
     //  limit is reached, the reactor stops creating new timers and logs an
     //  error.
+    @Draft
     public void maxTimers(long maxTimers)
     {
         this.maxTimers = maxTimers;
@@ -768,11 +803,6 @@ public class ZLoop
     protected void debug(String format, Object... args)
     {
         log("D", format, args);
-    }
-
-    protected void info(String format, Object... args)
-    {
-        log("I", format, args);
     }
 
     protected void warning(String format, Object... args)
