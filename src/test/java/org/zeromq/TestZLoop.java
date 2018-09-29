@@ -71,12 +71,12 @@ public class TestZLoop
         final AtomicInteger counter = new AtomicInteger();
         final AtomicBoolean done = new AtomicBoolean();
 
-        loop.addPoller(new PollItem(udpIn, ZMQ.Poller.POLLIN), new IZLoopHandler()
+        loop.poller(new PollItem(udpIn, ZMQ.Poller.POLLIN), new IZLoopHandler<DatagramChannel>()
         {
             @Override
-            public int handle(ZLoop loop, PollItem item, Object arg)
+            public int handle(ZLoop loop, PollItem item, DatagramChannel arg)
             {
-                DatagramChannel udpIn = (DatagramChannel) arg;
+                DatagramChannel udpIn = arg;
                 ByteBuffer bb = ByteBuffer.allocate(3);
                 try {
                     udpIn.receive(bb);
@@ -92,12 +92,12 @@ public class TestZLoop
                 return -1;
             }
         }, udpIn);
-        loop.addPoller(new PollItem(udpOut, ZMQ.Poller.POLLOUT), new IZLoopHandler()
+        loop.poller(new PollItem(udpOut, ZMQ.Poller.POLLOUT), new IZLoopHandler<DatagramChannel>()
         {
             @Override
-            public int handle(ZLoop loop, PollItem item, Object arg)
+            public int handle(ZLoop loop, PollItem item, DatagramChannel arg)
             {
-                DatagramChannel udpOut = (DatagramChannel) arg;
+                DatagramChannel udpOut = arg;
                 try {
                     ByteBuffer bb = ByteBuffer.allocate(3);
                     bb.put("udp".getBytes(ZMQ.CHARSET));
@@ -133,22 +133,22 @@ public class TestZLoop
         ZLoop loop = new ZLoop(ctx);
         assert (loop != null);
 
-        ZLoop.IZLoopHandler timerEvent = new ZLoop.IZLoopHandler()
+        ZLoop.IZLoopHandler<Socket> timerEvent = new ZLoop.IZLoopHandler<Socket>()
         {
             @Override
-            public int handle(ZLoop loop, PollItem item, Object arg)
+            public int handle(ZLoop loop, PollItem item, Socket arg)
             {
-                ((Socket) arg).send("PING", 0);
+                arg.send("PING", 0);
                 return 0;
             }
         };
 
-        ZLoop.IZLoopHandler socketEvent = new ZLoop.IZLoopHandler()
+        ZLoop.IZLoopHandler<Socket> socketEvent = new ZLoop.IZLoopHandler<Socket>()
         {
             @Override
-            public int handle(ZLoop loop, PollItem item, Object arg)
+            public int handle(ZLoop loop, PollItem item, Socket arg)
             {
-                received = ((Socket) arg).recvStr(0);
+                received = arg.recvStr(0);
                 //  Just end the reactor
                 return -1;
             }

@@ -54,6 +54,10 @@ public class ZLoopTest
         ZLoop loop = new ZLoop(ctx);
         assertThat(loop, notNullValue());
 
+        ZLoop.IZLoopHandler<Void> noopEvent = (lop, item, arg) -> {
+            return 0;
+        };
+
         ZLoop.IZLoopHandler<Socket> timerEvent = (lop, item, arg) -> {
             arg.send("PING", 0);
             return 0;
@@ -72,7 +76,6 @@ public class ZLoopTest
         assertThat(handle, notNullValue());
         handle = loop.timer(5, 1, new IZLoopHandler<Handle>()
         {
-
             @Override
             public int handle(ZLoop loop, PollItem item, Handle arg)
             {
@@ -84,27 +87,44 @@ public class ZLoopTest
         assertThat(handle, notNullValue());
 
         //  After 20 msecs, send a ping message to output3
-        rc = loop.addTimer(20, 1, timerEvent, output);
+        rc = loop.addTimer(20, 2, timerEvent, output);
         assertThat(rc, is(0));
 
         //  Set up some tickets that will never expire
         loop.ticketDelay(10000);
-        Handle handle1 = loop.addTicket(timerEvent, null);
+        Handle handle1 = loop.ticket(noopEvent, null);
         assertThat(handle1, notNullValue());
-        Handle handle2 = loop.addTicket(timerEvent, null);
+        Handle handle2 = loop.ticket(noopEvent, null);
         assertThat(handle2, notNullValue());
-        Handle handle3 = loop.addTicket(timerEvent, null);
+        Handle handle3 = loop.ticket(noopEvent, null);
         assertThat(handle3, notNullValue());
 
+        ZLoop.IZLoopHandler<Void> ticketEvent = (lop, item, arg) -> {
+            lop.resetTicket(handle3);
+            lop.removeTicket(handle2);
+            return 0;
+        };
+
+        Handle handle4 = loop.timer(5, 1, ticketEvent, null);
+        assertThat(handle4, notNullValue());
+
         // When we get the ping message, end the reactor
-        handle = loop.addReader(input, socketEvent, input);
+        handle = loop.reader(input, socketEvent, input);
         assertThat(handle, notNullValue());
         loop.setTolerantReader(handle);
 
+        handle = loop.reader(input, socketEvent, input);
+        assertThat(handle, notNullValue());
+
+        handle = loop.reader(input, socketEvent, input);
+        assertThat(handle, notNullValue());
+        loop.removeReader(handle);
+
         loop.start();
 
+        loop.removeReader(input);
+
         loop.removeTicket(handle1);
-        loop.removeTicket(handle2);
         loop.removeTicket(handle3);
 
         //  Check whether loop properly ignores zsys_interrupted flag
@@ -126,6 +146,7 @@ public class ZLoopTest
             public int handle(ZLoop loop, PollItem item, Socket arg)
             {
                 arg.send("PING", 0);
+                loop.removeTimer(output);
                 return 0;
             }
         };
@@ -149,12 +170,12 @@ public class ZLoopTest
 
         // When we get the ping message, end the reactor
         PollItem pollInput = new PollItem(input, ZMQ.Poller.POLLIN);
-        rc = loop.addPoller(pollInput, socketEvent, input);
-        assertThat(rc, is(0));
+        Handle handle = loop.poller(pollInput, socketEvent, input);
+        assertThat(handle, notNullValue());
 
         loop.start();
 
-        loop.removePoller(pollInput);
+        loop.removePoller(handle);
         //  Check whether loop properly ignores zsys_interrupted flag
         //  when asked to
         assertThat(received, is("PING"));
