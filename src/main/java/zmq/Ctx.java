@@ -717,9 +717,9 @@ public class Ctx
             Msg id = new Msg(bindOptions.identitySize);
             id.put(bindOptions.identity, 0, bindOptions.identitySize);
             id.setFlags(Msg.IDENTITY);
-            boolean written = pendingConnection.bindPipe.write(id);
-            assert (written);
-            pendingConnection.bindPipe.flush();
+            if (pendingConnection.bindPipe.write(id)) {
+                pendingConnection.bindPipe.flush();
+            }
         }
     }
 
