@@ -13,7 +13,7 @@ import zmq.ZObject;
 import zmq.poll.IPollEvents;
 import zmq.poll.Poller;
 
-public class IOThread extends ZObject implements IPollEvents
+public final class IOThread extends ZObject implements IPollEvents
 {
     //  I/O thread accesses incoming commands via this mailbox.
     private final Mailbox mailbox;
@@ -44,7 +44,7 @@ public class IOThread extends ZObject implements IPollEvents
         poller.setPollIn(mailboxHandle);
     }
 
-    public final void start()
+    public void start()
     {
         poller.start();
     }
@@ -55,23 +55,23 @@ public class IOThread extends ZObject implements IPollEvents
         mailbox.destroy();
     }
 
-    public final void stop()
+    public void stop()
     {
         sendStop();
     }
 
-    public final Mailbox getMailbox()
+    public Mailbox getMailbox()
     {
         return mailbox;
     }
 
-    public final int getLoad()
+    public int getLoad()
     {
         return poller.getLoad();
     }
 
     @Override
-    public final void inEvent()
+    public void inEvent()
     {
         //  TODO: Do we want to limit number of commands I/O thread can
         //  process in a single go?
@@ -92,14 +92,14 @@ public class IOThread extends ZObject implements IPollEvents
         }
     }
 
-    public final Poller getPoller(IOObject io)
+    public Poller getPoller(IOObject io)
     {
         boolean added = plugs.add(io);
         assert (added);
         return poller;
     }
 
-    public final void givePoller(IOObject io)
+    public void givePoller(IOObject io)
     {
         plugs.remove(io);
         if (plugs.isEmpty() && reaping) {
@@ -108,7 +108,7 @@ public class IOThread extends ZObject implements IPollEvents
     }
 
     @Override
-    protected final void processStop(int tid)
+    protected void processStop(int tid)
     {
         assert (tid == getTid());
         // we called ourselves
@@ -122,7 +122,7 @@ public class IOThread extends ZObject implements IPollEvents
     }
 
     @Override
-    public final void processReap(ZObject object)
+    public void processReap(ZObject object)
     {
         assert (reaping);
         assert (object instanceof Reaper);
@@ -134,7 +134,7 @@ public class IOThread extends ZObject implements IPollEvents
     }
 
     @Override
-    public final void processReaped(ZObject object)
+    public void processReaped(ZObject object)
     {
         assert (reaping);
         assert (object instanceof Reaper);

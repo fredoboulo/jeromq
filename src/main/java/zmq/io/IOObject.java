@@ -19,10 +19,10 @@ public class IOObject implements IPollEvents
 
     public IOObject(IOThread ioThread, IPollEvents handler)
     {
-        this.ioThread = ioThread;
         assert (ioThread != null);
         assert (handler != null);
 
+        this.ioThread = ioThread;
         this.handler = handler;
         //  Retrieve the poller from the thread we are running in.
         poller = ioThread.getPoller(this);

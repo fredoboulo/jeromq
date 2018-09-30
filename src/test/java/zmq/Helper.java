@@ -9,14 +9,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import zmq.io.IOThread;
-import zmq.io.SessionBase;
-import zmq.io.net.Address;
-import zmq.pipe.Pipe;
 import zmq.util.Errno;
 
 public class Helper
@@ -73,72 +67,6 @@ public class Helper
             }
             src.get(buf, 0, remaining);
             return remaining;
-        }
-
-    }
-
-    public static DummyCtx ctx = new DummyCtx();
-
-    public static class DummyIOThread extends IOThread
-    {
-        public DummyIOThread()
-        {
-            super(Helper.ctx, 2);
-        }
-    }
-
-    public static class DummySocket extends SocketBase
-    {
-        public DummySocket()
-        {
-            super(Helper.ctx, counter.get(), counter.get());
-            counter.incrementAndGet();
-        }
-
-        @Override
-        protected void xattachPipe(Pipe pipe, boolean icanhasall, boolean isLocallyInitiated)
-        {
-        }
-
-        @Override
-        protected void xpipeTerminated(Pipe pipe)
-        {
-        }
-
-    }
-
-    public static class DummySession extends SessionBase
-    {
-        public List<Msg> out = new ArrayList<Msg>();
-
-        public DummySession()
-        {
-            this(new DummyIOThread(), false, new DummySocket(), new Options(), new Address("tcp", "localhost:9090"));
-        }
-
-        public DummySession(IOThread ioThread, boolean connect, SocketBase socket, Options options, Address addr)
-        {
-            super(ioThread, connect, socket, options, addr);
-        }
-
-        @Override
-        public boolean pushMsg(Msg msg)
-        {
-            System.out.println("session.write " + msg);
-            out.add(msg);
-            return true;
-        }
-
-        @Override
-        public Msg pullMsg()
-        {
-            System.out.println("session.read " + out);
-            if (out.size() == 0) {
-                return null;
-            }
-            Msg msg = out.remove(0);
-
-            return msg;
         }
 
     }

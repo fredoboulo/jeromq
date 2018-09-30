@@ -18,31 +18,27 @@ public class TestShutdownStress
 
     class Worker implements Runnable
     {
-        private final int        port;
         private final SocketBase socket;
 
         Worker(SocketBase socket) throws IOException
         {
-            this.port = Utils.findOpenPort();
             this.socket = socket;
         }
 
         @Override
         public void run()
         {
-            boolean rc = ZMQ.connect(socket, "tcp://127.0.0.1:" + port);
+            boolean rc = ZMQ.connect(socket, "tcp://127.0.0.1:*");
             assertThat(rc, is(true));
 
             //  Start closing the socket while the connecting process is underway.
-            ZMQ.closeZeroLinger(socket);
+            ZMQ.close(socket);
         }
     }
 
-    @Test
+    @Test(timeout = 4000)
     public void testShutdownStress() throws Exception
     {
-        int randomPort = Utils.findOpenPort();
-
         for (int idx = 0; idx < 10; idx++) {
             System.out.println("---------- " + idx);
             Ctx ctx = ZMQ.init(7);
@@ -51,7 +47,7 @@ public class TestShutdownStress
             SocketBase pub = ZMQ.socket(ctx, ZMQ.ZMQ_PUB);
             assertThat(pub, notNullValue());
 
-            boolean rc = ZMQ.bind(pub, "tcp://127.0.0.1:" + randomPort);
+            boolean rc = ZMQ.bind(pub, "tcp://127.0.0.1:*");
             assertThat(rc, is(true));
 
             ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
@@ -65,7 +61,7 @@ public class TestShutdownStress
             executor.shutdown();
             executor.awaitTermination(30, TimeUnit.SECONDS);
 
-            ZMQ.closeZeroLinger(pub);
+            ZMQ.close(pub);
             ZMQ.term(ctx);
         }
     }

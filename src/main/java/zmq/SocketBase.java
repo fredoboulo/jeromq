@@ -37,12 +37,6 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             this.endpoint = endpoint;
             this.pipe = pipe;
         }
-
-        @Override
-        public String toString()
-        {
-            return "EndpointPipe [endpoint=" + endpoint + ", pipe=" + pipe + "]";
-        }
     }
 
     //  Map of open endpoints.
@@ -1148,8 +1142,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
         //  Remove the pipe from the list of attached pipes and confirm its
         //  termination if we are already shutting down.
-        boolean rc = pipes.remove(pipe);
-        if (isTerminating() && rc) {
+        if (pipes.remove(pipe) && isTerminating()) {
             unregisterTermAck(pipe);
         }
     }
@@ -1336,7 +1329,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
     @Override
     public String toString()
     {
-        return getClass().getSimpleName() + "[" + getTid() + "]";
+        return getClass().getSimpleName() + "[" + options.socketId + "]";
     }
 
     public final SelectableChannel getFD()
