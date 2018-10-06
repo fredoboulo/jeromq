@@ -10,6 +10,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Histogram;
@@ -23,6 +24,7 @@ import zmq.Helper;
  * @author fred
  *
  */
+@Category(PerformanceTests.class)
 public class TestPerfs
 {
     private static final String WAIT          = " ** Wait ** ";

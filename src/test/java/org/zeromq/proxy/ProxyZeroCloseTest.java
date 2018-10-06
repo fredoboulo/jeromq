@@ -7,15 +7,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
+import org.zeromq.SocketType;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 
 import zmq.Helper;
+import zmq.proxy.ProxyTests;
 
 /**
  * In this test, we create sockets in the proxy thread, and attend that someone closes them for us.
  *
  */
+@Category(ProxyTests.class)
 public class ProxyZeroCloseTest
 {
     private static class ProxyPubSub implements Runnable
@@ -28,8 +32,8 @@ public class ProxyZeroCloseTest
 
         public ProxyPubSub(ZContext ctx)
         {
-            xsubSocket = ctx.createSocket(ZMQ.XSUB);
-            xpubSocket = ctx.createSocket(ZMQ.XPUB);
+            xsubSocket = ctx.createSocket(SocketType.XSUB);
+            xpubSocket = ctx.createSocket(SocketType.XPUB);
             this.ctx = ctx;
         }
 

@@ -11,6 +11,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.LockSupport;
 
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
+import org.zeromq.SocketType;
 import org.zeromq.Utils;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
@@ -22,12 +24,14 @@ import org.zeromq.ZMsg;
 
 import zmq.Helper;
 import zmq.ZError;
+import zmq.proxy.ProxyTests;
 
 /**
  * In this test, we create sockets in the main thread, start a proxy with it, some workers,
  * and close all sockets in the main thread.
  *
  */
+@Category(ProxyTests.class)
 public class ProxyPushPullTest
 {
     private static final String FRONTEND       = "tcp://*:";
@@ -208,16 +212,16 @@ public class ProxyPushPullTest
             throws InterruptedException, BrokenBarrierException, TimeoutException, IOException
     {
         final Context ctx = ZMQ.context(1);
-        final Socket recvMsgSock = ctx.socket(ZMQ.PULL);
+        final Socket recvMsgSock = ctx.socket(SocketType.PULL);
         recvMsgSock.bind(FRONTEND + Utils.findOpenPort());
-        final Socket processMsgSock = ctx.socket(ZMQ.PUSH);
+        final Socket processMsgSock = ctx.socket(SocketType.PUSH);
         processMsgSock.bind(PROXY_WORKERS);
 
         final CyclicBarrier started = new CyclicBarrier(workers + 1);
         final CountDownLatch stopped = new CountDownLatch(workers + 1);
         List<Socket> workerSocks = new ArrayList<Socket>();
         for (int i = 0; i < workers; i++) {
-            Socket workerSock = ctx.socket(ZMQ.PULL);
+            Socket workerSock = ctx.socket(SocketType.PULL);
             workerSock.connect(PROXY_WORKERS);
             workerSocks.add(workerSock);
         }
@@ -305,16 +309,16 @@ public class ProxyPushPullTest
             throws InterruptedException, BrokenBarrierException, TimeoutException, IOException
     {
         final ZContext ctx = new ZContext(1);
-        final Socket recvMsgSock = ctx.createSocket(ZMQ.PULL);
+        final Socket recvMsgSock = ctx.createSocket(SocketType.PULL);
         recvMsgSock.bind(FRONTEND + Utils.findOpenPort());
-        final Socket processMsgSock = ctx.createSocket(ZMQ.PUSH);
+        final Socket processMsgSock = ctx.createSocket(SocketType.PUSH);
         processMsgSock.bind(PROXY_WORKERS);
 
         final CyclicBarrier started = new CyclicBarrier(workers + 1);
         final CountDownLatch stopped = new CountDownLatch(workers + 1);
         List<Socket> workerSockets = new ArrayList<Socket>();
         for (int i = 0; i < workers; i++) {
-            Socket workerSock = ctx.createSocket(ZMQ.PULL);
+            Socket workerSock = ctx.createSocket(SocketType.PULL);
             workerSock.connect(PROXY_WORKERS);
             workerSockets.add(workerSock);
         }

@@ -7,6 +7,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.zeromq.ZMQ.Socket;
 
@@ -14,9 +15,11 @@ import org.zeromq.ZMQ.Socket;
 public class TestRapidOpenCloseSocket
 {
     @Test
+    @Ignore
     public void testRapidOpenCloseSocket() throws Exception
     {
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 5000; i++) {
+            System.out.println("++++ " + i);
             performTest();
         }
     }

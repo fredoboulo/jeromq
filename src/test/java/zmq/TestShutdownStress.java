@@ -11,7 +11,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
+import perf.PerformanceTests;
+
+@Category(PerformanceTests.class)
 public class TestShutdownStress
 {
     private static final int THREAD_COUNT = 100;
@@ -40,7 +44,6 @@ public class TestShutdownStress
     public void testShutdownStress() throws Exception
     {
         for (int idx = 0; idx < 10; idx++) {
-            System.out.println("---------- " + idx);
             Ctx ctx = ZMQ.init(7);
             assertThat(ctx, notNullValue());
 

@@ -7,6 +7,7 @@ import static org.junit.Assert.fail;
 
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import zmq.Ctx;
 import zmq.Helper;
@@ -19,6 +20,7 @@ import zmq.ZMQ;
  *
  *
  */
+@Category(ProxyTests.class)
 public class ProxyZmqCloseTest extends Thread
 {
     @Ignore

@@ -29,6 +29,7 @@ public class StressTesterZeromq extends StressTesterZMQ
         super("Zeromq", frontEndType, brokerType, workerType);
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     protected void performTest(int workers, long sleep)
             throws InterruptedException, BrokenBarrierException, TimeoutException

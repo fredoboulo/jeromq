@@ -152,6 +152,7 @@ public class PubSubTest
                 }
                 pub.close();
                 ctx.close();
+                System.out.println();
             }
         };
         final Callable<Integer> sub = new Callable<Integer>()

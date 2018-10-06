@@ -13,6 +13,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
+import org.zeromq.SocketType;
 import org.zeromq.Utils;
 import org.zeromq.ZActor;
 import org.zeromq.ZActor.Actor;
@@ -25,10 +27,13 @@ import org.zeromq.ZProxy;
 import org.zeromq.ZProxy.Plug;
 import org.zeromq.ZProxy.Proxy;
 
+import zmq.proxy.ProxyTests;
+
 /**
  * In this test, sockets are created in the main thread and closed in each application thread.
  * Finally the context is closed in the main thread.
  */
+@Category(ProxyTests.class)
 public class ZProxyZeroTcpTest
 {
     private final class ProxyExtension extends Proxy.SimpleProxy
@@ -45,18 +50,18 @@ public class ZProxyZeroTcpTest
         }
 
         @Override
-        public Socket create(ZContext ctx, Plug place, Object[] args)
+        public Socket create(ZContext ctx, Plug place, Object... args)
         {
             Socket socket = null;
             switch (place) {
             case FRONT:
-                Socket frontend = ctx.createSocket(ZMQ.ROUTER);
+                Socket frontend = ctx.createSocket(SocketType.ROUTER);
 
                 assertNotNull(frontend);
                 socket = frontend;
                 break;
             case BACK:
-                Socket backend = ctx.createSocket(ZMQ.DEALER);
+                Socket backend = ctx.createSocket(SocketType.DEALER);
                 assertNotNull(backend);
                 socket = backend;
                 break;
@@ -67,7 +72,7 @@ public class ZProxyZeroTcpTest
         }
 
         @Override
-        public boolean configure(Socket socket, Plug place, Object[] args)
+        public boolean configure(Socket socket, Plug place, Object... args)
         {
             boolean rc = true;
             if (place == Plug.FRONT) {
@@ -83,7 +88,7 @@ public class ZProxyZeroTcpTest
         }
 
         @Override
-        public boolean restart(ZMsg cfg, Socket socket, Plug place, Object[] args)
+        public boolean restart(ZMsg cfg, Socket socket, Plug place, Object... args)
         {
             boolean rc = true;
             switch (place) {
@@ -108,7 +113,7 @@ public class ZProxyZeroTcpTest
         }
 
         @Override
-        public boolean configure(Socket pipe, ZMsg cfg, Socket frontend, Socket backend, Socket capture, Object[] args)
+        public boolean configure(Socket pipe, ZMsg cfg, Socket frontend, Socket backend, Socket capture, Object... args)
         {
             return true;
         }
@@ -125,7 +130,7 @@ public class ZProxyZeroTcpTest
             this.clientHost = clientHost;
             this.name = name;
 
-            socket = ctx.createSocket(ZMQ.REQ);
+            socket = ctx.createSocket(SocketType.REQ);
             socket.setIdentity(name.getBytes(ZMQ.CHARSET));
         }
 
@@ -158,7 +163,7 @@ public class ZProxyZeroTcpTest
             this.serverHost = serverHost;
             this.start = start;
             this.stopLatch = stopLatch;
-            socket = ctx.createSocket(ZMQ.DEALER);
+            socket = ctx.createSocket(SocketType.DEALER);
             this.name = name;
 
             socket.setIdentity(name.getBytes(ZMQ.CHARSET));
@@ -294,7 +299,7 @@ public class ZProxyZeroTcpTest
 
         final Proxy proxyImpl = new ProxyExtension(clientHost, serverHost, captureHost);
 
-        ZProxy proxy = ZProxy.newZProxy(ctx, "Proxy[" + index + "]", null, proxyImpl, null, dubber);
+        ZProxy proxy = ZProxy.newZProxy(ctx, "Proxy[" + index + "]", proxyImpl, null, dubber);
         executor.submit(new Worker(ctx, serverHost, "AA-" + index, start, stopLatch));
         executor.submit(new Worker(ctx, serverHost, "BB-" + index, start, stopLatch));
 

@@ -862,22 +862,12 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         return xhasOut();
     }
 
-    @Override
-    protected void processReaped(ZObject self)
-    {
-        //  Mark the socket as dead
-        tag = 0xdeadbeef;
-
-        assert (self == this);
-        mailbox.destroy();
-    }
-
     //  Using this function reaper thread ask the socket to register with
     //  its poller.
     @Override
     protected void processReap(ZObject object)
     {
-        assert (object instanceof Reaper);
+        assert (object instanceof Reaper) : object;
         Reaper reaper = (Reaper) object;
 
         //  Plug the socket to the reaper thread.
@@ -892,6 +882,16 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         //  Initialize the termination and check whether it can be deallocated
         //  immediately.
         terminate();
+    }
+
+    @Override
+    protected void processReaped(ZObject self)
+    {
+        //  Mark the socket as dead
+        tag = 0xdeadbeef;
+
+        assert (self == this) : self;
+        mailbox.destroy();
     }
 
     @Override
