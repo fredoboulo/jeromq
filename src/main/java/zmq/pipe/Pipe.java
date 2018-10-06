@@ -353,7 +353,7 @@ public class Pipe extends ZObject
     @Override
     protected void processPipeTerm()
     {
-        assert (state == State.ACTIVE || state == State.DELIMITER_RECEIVED || state == State.TERM_REQ_SENT_1);
+        assert (state == State.ACTIVE || state == State.DELIMITER_RECEIVED || state == State.TERM_REQ_SENT_1) : state;
 
         //  This is the simple case of peer-induced termination. If there are no
         //  more pending messages to read, or if the pipe was configured to drop
@@ -392,36 +392,38 @@ public class Pipe extends ZObject
     @Override
     protected void processPipeTermAck(State peerState)
     {
-        assert (state == State.TERM_ACK_SENT || state == State.TERM_REQ_SENT_1 || state == State.TERM_REQ_SENT_2);
+        assert (state == State.TERM_ACK_SENT || state == State.TERM_REQ_SENT_1
+                || state == State.TERM_REQ_SENT_2) : state;
         assert (peerState == State.TERM_ACK_SENT || peerState == State.TERM_REQ_SENT_1
-                || peerState == State.TERM_REQ_SENT_2);
+                || peerState == State.TERM_REQ_SENT_2) : peerState;
 
         //  Notify the user that all the references to the pipe should be dropped.
         assert (sink != null);
         sink.pipeTerminated(this);
 
-        //  In term_ack_sent and term_req_sent2 states there's nothing to do.
-        //  Simply deallocate the pipe. In term_req_sent1 state we have to ack
-        //  the peer before deallocating this side of the pipe.
-        //  All the other states are invalid.
-        if (state == State.TERM_REQ_SENT_1) {
+        switch (state) {
+        case TERM_ACK_SENT:
+            assert (peerState == State.TERM_REQ_SENT_1) : peerState;
+            //  Simply deallocate the pipe.
+            break;
+        case TERM_REQ_SENT_1:
             outpipe = null;
-            if (peerState == State.TERM_REQ_SENT_1) {
-                // in this case, no need to send another ack
-                return;
+            switch (peerState) {
+            case TERM_ACK_SENT:
+                // we have to ack the peer before deallocating this side of the pipe.
+                sendPipeTermAck(peer, state);
+                break;
+            default:
+                // in other cases, no need to send another ack
+                break;
             }
-            if (peerState == State.TERM_REQ_SENT_2) {
-                // in this case, no need to send another ack
-                return;
-            }
-            sendPipeTermAck(peer, state);
-        }
-        else if (peerState == State.TERM_REQ_SENT_2) {
-            // ok...
+            break;
+        default: // TERM_REQ_SENT_2
+            // nothing to do
+            assert (peerState == State.TERM_REQ_SENT_2) : peerState;
             return;
         }
 
-        // TODO V4 not in zeromq, but no harm. Remove it?
         // If the inbound pipe has already been deallocated, then we're done.
         if (inpipe == null) {
             return;

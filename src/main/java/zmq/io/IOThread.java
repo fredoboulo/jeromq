@@ -1,8 +1,8 @@
 package zmq.io;
 
 import java.nio.channels.SelectableChannel;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import zmq.Command;
 import zmq.Ctx;
@@ -25,7 +25,7 @@ public final class IOThread extends ZObject implements IPollEvents
     private final Poller poller;
 
     // I/O objects being plugged at the moment
-    private final Set<IOObject> plugs = new HashSet<>();
+    private final Set<IOObject> plugs = new CopyOnWriteArraySet<>();
 
     private final String name;
 
@@ -73,6 +73,8 @@ public final class IOThread extends ZObject implements IPollEvents
     @Override
     public void inEvent()
     {
+        assert poller.inWorkerThread();
+
         //  TODO: Do we want to limit number of commands I/O thread can
         //  process in a single go?
         assert (!reaping);
@@ -101,6 +103,8 @@ public final class IOThread extends ZObject implements IPollEvents
 
     public void givePoller(IOObject io)
     {
+        assert poller.inWorkerThread();
+
         plugs.remove(io);
         if (plugs.isEmpty() && reaping) {
             sendReaped(this);
@@ -110,8 +114,9 @@ public final class IOThread extends ZObject implements IPollEvents
     @Override
     protected void processStop(int tid)
     {
-        assert (tid == getTid());
+        assert (getTid() == tid) : getTid() + "<>" + tid;
         // we called ourselves
+        assert poller.inWorkerThread();
 
         reaping = true;
         poller.removeHandle(mailboxHandle);
@@ -125,7 +130,7 @@ public final class IOThread extends ZObject implements IPollEvents
     public void processReap(ZObject object)
     {
         assert (reaping);
-        assert (object instanceof Reaper);
+        assert (object instanceof Reaper) : object;
 
         Reaper reaper = (Reaper) object;
         if (plugs.isEmpty()) {

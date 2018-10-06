@@ -126,8 +126,6 @@ public abstract class Own extends ZObject
     @Override
     protected final void processTermReq(Own object)
     {
-        //  If I/O object is well and alive let's ask it to terminate.
-
         //  If not found, we assume that termination request was already sent to
         //  the object so we can safely ignore the request.
         if (!owned.remove(object)) {
@@ -137,7 +135,7 @@ public abstract class Own extends ZObject
         //  When shutting down we can ignore termination requests from owned
         //  objects. The termination request was already sent to the object.
         if (terminating) {
-            // but we can still check for termination acknowledgments ...
+            // but we can still check for termination acknowledgments
             checkTermAcks();
             return;
         }

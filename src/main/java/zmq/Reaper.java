@@ -98,7 +98,7 @@ public final class Reaper extends ZObject implements IPollEvents
     @Override
     protected void processStop(int tid)
     {
-        assert (getTid() == tid);
+        assert (getTid() == tid) : getTid() + " <> " + tid;
         if (terminating.compareAndSet(false, true)) {
             //  If there are no sockets being reaped finish immediately.
             stopIO();
