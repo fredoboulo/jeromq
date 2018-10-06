@@ -68,6 +68,9 @@ public class TestZMQ
             assertEquals(e.getErrorCode(), ZMQ.Error.EADDRINUSE.getCode());
             throw e;
         }
+        catch (Throwable e) {
+            e.printStackTrace();
+        }
         finally {
             socket1.close();
             socket2.close();

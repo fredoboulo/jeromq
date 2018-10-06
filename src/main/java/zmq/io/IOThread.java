@@ -103,8 +103,6 @@ public final class IOThread extends ZObject implements IPollEvents
 
     public void givePoller(IOObject io)
     {
-        assert poller.inWorkerThread();
-
         plugs.remove(io);
         if (plugs.isEmpty() && reaping) {
             sendReaped(this);

@@ -200,7 +200,6 @@
 	<profile>
         <id>tests-all</id>
         <properties>
-            <includedCategories>*</includedCategories>
             <excludedCategories></excludedCategories>
         </properties>
     </profile>
