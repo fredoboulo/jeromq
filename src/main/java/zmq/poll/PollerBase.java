@@ -2,12 +2,15 @@ package zmq.poll;
 
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 import zmq.util.Clock;
 import zmq.util.MultiMap;
 
 abstract class PollerBase implements Runnable
 {
+    static final Predicate<Thread> IN_WORKER_THREAD = worker -> Thread.currentThread() == worker;
+
     private static final class TimerInfo
     {
         private final IPollEvents sink;
@@ -67,12 +70,25 @@ abstract class PollerBase implements Runnable
     // did timers expiration add timer ?
     private boolean changed;
 
+    private final Predicate<Thread> inWorkerThread;
+
     protected PollerBase(String name)
     {
+        this(name, IN_WORKER_THREAD);
+    }
+
+    PollerBase(String name, Predicate<Thread> inWorkerThread)
+    {
+        this.inWorkerThread = inWorkerThread;
         worker = createWorker(name);
 
         load = new AtomicInteger(0);
         timers = new MultiMap<>();
+    }
+
+    boolean inWorkerThread()
+    {
+        return inWorkerThread.test(worker);
     }
 
     Thread createWorker(String name)
@@ -110,7 +126,7 @@ abstract class PollerBase implements Runnable
     //  argument set to id_.
     public void addTimer(long timeout, IPollEvents sink, int id)
     {
-        assert (Thread.currentThread() == worker);
+        assert (inWorkerThread());
 
         final long expiration = clock() + timeout;
         TimerInfo info = new TimerInfo(sink, id);
@@ -122,7 +138,7 @@ abstract class PollerBase implements Runnable
     //  Cancel the timer created by sink_ object with ID equal to id_.
     public void cancelTimer(IPollEvents sink, int id)
     {
-        assert (Thread.currentThread() == worker);
+        assert (inWorkerThread());
 
         TimerInfo copy = new TimerInfo(sink, id);
         //  Complexity of this operation is O(n). We assume it is rarely used.
@@ -138,7 +154,7 @@ abstract class PollerBase implements Runnable
     //  to wait to match the next timer or 0 meaning "no timers".
     protected long executeTimers()
     {
-        assert (Thread.currentThread() == worker);
+        assert (inWorkerThread());
 
         changed = false;
 
@@ -148,7 +164,7 @@ abstract class PollerBase implements Runnable
         }
 
         //  Get the current time.
-        long current = clock();
+        final long current = clock();
 
         //   Execute the timers that are already due.
         for (Entry<TimerInfo, Long> entry : timers.entries()) {

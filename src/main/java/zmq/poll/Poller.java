@@ -11,10 +11,14 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 
 import zmq.Ctx;
 import zmq.ZError;
+import zmq.util.Clock;
+import zmq.util.ValueReference;
 
 public final class Poller extends PollerBase implements Runnable
 {
@@ -86,7 +90,12 @@ public final class Poller extends PollerBase implements Runnable
 
     public Poller(Ctx ctx, String name)
     {
-        super(name);
+        this(ctx, name, IN_WORKER_THREAD);
+    }
+
+    Poller(Ctx ctx, String name, Predicate<Thread> inWorkerThread)
+    {
+        super(name, inWorkerThread);
         this.ctx = ctx;
 
         fdTable = new HashSet<>();
@@ -111,7 +120,7 @@ public final class Poller extends PollerBase implements Runnable
 
     public Handle addHandle(SelectableChannel fd, IPollEvents events)
     {
-        assert (Thread.currentThread() == worker || !worker.isAlive());
+        assert (inWorkerThread() || !worker.isAlive());
 
         Handle handle = new Handle(fd, events);
         fdTable.add(handle);
@@ -123,7 +132,7 @@ public final class Poller extends PollerBase implements Runnable
 
     public void removeHandle(Handle handle)
     {
-        assert (Thread.currentThread() == worker || !worker.isAlive());
+        assert (inWorkerThread() || !worker.isAlive());
 
         //  Mark the fd as unused.
         handle.cancelled = true;
@@ -165,7 +174,7 @@ public final class Poller extends PollerBase implements Runnable
 
     private void register(Handle handle, int ops, boolean add)
     {
-        assert (Thread.currentThread() == worker || !worker.isAlive());
+        assert (inWorkerThread() || !worker.isAlive());
 
         if (add) {
             handle.ops |= ops;
@@ -191,116 +200,123 @@ public final class Poller extends PollerBase implements Runnable
     @Override
     public void run()
     {
-        int returnsImmediately = 0;
+        final ValueReference<Integer> returnsImmediately = new ValueReference<>();
 
         while (!stopping.get()) {
-            //  Execute any due timers.
-            long timeout = executeTimers();
-
-            if (retired) {
-                retired = false;
-                Iterator<Handle> iter = fdTable.iterator();
-                while (iter.hasNext()) {
-                    Handle handle = iter.next();
-                    SelectionKey key = handle.fd.keyFor(selector);
-                    if (handle.cancelled || !handle.fd.isOpen()) {
-                        if (key != null) {
-                            key.cancel();
-                        }
-                        iter.remove();
-                        continue;
-                    }
-                    if (key == null) {
-                        if (handle.fd.isOpen()) {
-                            try {
-                                key = handle.fd.register(selector, handle.ops, handle);
-                                assert (key != null);
-                            }
-                            catch (CancelledKeyException | ClosedSelectorException | ClosedChannelException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                    else if (key.isValid()) {
-                        key.interestOps(handle.ops);
-                    }
-                }
-            }
-
-            //  Wait for events.
-            int rc;
-            long start = System.currentTimeMillis();
-            try {
-                rc = selector.select(timeout);
-            }
-            catch (ClosedSelectorException e) {
-                rebuildSelector();
-                e.printStackTrace();
-                ctx.errno().set(ZError.EINTR);
-                continue;
-            }
-            catch (IOException e) {
-                throw new ZError.IOException(e);
-            }
-
-            //  If there are no events (i.e. it's a timeout) there's no point
-            //  in checking the keys.
-            if (rc == 0) {
-                returnsImmediately = maybeRebuildSelector(returnsImmediately, timeout, start);
-                continue;
-            }
-
-            Iterator<SelectionKey> it = selector.selectedKeys().iterator();
-            while (it.hasNext()) {
-                SelectionKey key = it.next();
-                Handle pollset = (Handle) key.attachment();
-                it.remove();
-                if (pollset.cancelled) {
-                    continue;
-                }
-
-                try {
-                    if (key.isValid() && key.isAcceptable()) {
-                        pollset.handler.acceptEvent();
-                    }
-                    if (key.isValid() && key.isConnectable()) {
-                        pollset.handler.connectEvent();
-                    }
-                    if (key.isValid() && key.isWritable()) {
-                        pollset.handler.outEvent();
-                    }
-                    if (key.isValid() && key.isReadable()) {
-                        pollset.handler.inEvent();
-                    }
-                }
-                catch (CancelledKeyException e) {
-                    // key may have been cancelled (?)
-                    e.printStackTrace();
-                }
-                catch (RuntimeException e) {
-                    // avoid the thread death by continuing to iterate
-                    e.printStackTrace();
-                }
-            }
+            run(returnsImmediately);
         }
         stopped.countDown();
     }
 
-    private int maybeRebuildSelector(int returnsImmediately, long timeout, long start)
+    boolean run(final ValueReference<Integer> returnsImmediately)
     {
-        //  Guess JDK epoll bug
-        if (timeout == 0 || System.currentTimeMillis() - start < timeout / 2) {
-            returnsImmediately++;
-        }
-        else {
-            returnsImmediately = 0;
+        //  Execute any due timers.
+        final long timeout = executeTimers();
+
+        if (retired) {
+            retired = false;
+            final Iterator<Handle> iter = fdTable.iterator();
+            while (iter.hasNext()) {
+                final Handle handle = iter.next();
+                SelectionKey key = handle.fd.keyFor(selector);
+                if (handle.cancelled || !handle.fd.isOpen()) {
+                    if (key != null) {
+                        key.cancel();
+                    }
+                    iter.remove();
+                    continue;
+                }
+                if (key == null) {
+                    if (handle.fd.isOpen()) {
+                        try {
+                            key = handle.fd.register(selector, handle.ops, handle);
+                            assert (key != null);
+                        }
+                        catch (CancelledKeyException | ClosedSelectorException | ClosedChannelException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                else if (key.isValid()) {
+                    key.interestOps(handle.ops);
+                }
+            }
         }
 
-        if (returnsImmediately > 10) {
-            rebuildSelector();
-            returnsImmediately = 0;
+        //  Wait for events.
+        int rc;
+        final long start = Clock.nowNS();
+        try {
+            rc = selector.select(timeout);
         }
-        return returnsImmediately;
+        catch (final ClosedSelectorException e) {
+            rebuildSelector();
+            e.printStackTrace();
+            ctx.errno().set(ZError.EINTR);
+            return false;
+        }
+        catch (final IOException e) {
+            throw new ZError.IOException(e);
+        }
+
+        //  If there are no events (i.e. it's a timeout) there's no point
+        //  in checking the keys.
+        if (rc == 0) {
+            maybeRebuildSelector(returnsImmediately, timeout, TimeUnit.NANOSECONDS.toMillis(Clock.nowNS() - start));
+            return false;
+        }
+        returnsImmediately.set(0);
+
+        final Iterator<SelectionKey> it = selector.selectedKeys().iterator();
+        while (it.hasNext()) {
+            final SelectionKey key = it.next();
+            final Handle pollset = (Handle) key.attachment();
+            it.remove();
+            if (pollset.cancelled) {
+                continue;
+            }
+
+            try {
+                if (key.isValid() && key.isAcceptable()) {
+                    pollset.handler.acceptEvent();
+                }
+                if (key.isValid() && key.isConnectable()) {
+                    pollset.handler.connectEvent();
+                }
+                if (key.isValid() && key.isWritable()) {
+                    pollset.handler.outEvent();
+                }
+                if (key.isValid() && key.isReadable()) {
+                    pollset.handler.inEvent();
+                }
+            }
+            catch (final CancelledKeyException e) {
+                // key may have been cancelled (?)
+                e.printStackTrace();
+            }
+            catch (final RuntimeException e) {
+                // avoid the thread death by continuing to iterate
+                e.printStackTrace();
+            }
+        }
+        return true;
+    }
+
+    int maybeRebuildSelector(ValueReference<Integer> returnsImmediately, long timeout, long elapsed)
+    {
+        //  Guess JDK epoll bug
+        if (timeout == 0 || elapsed < timeout / 2) {
+            returnsImmediately.set(returnsImmediately.get() + 1);
+        }
+        else {
+            returnsImmediately.set(0);
+        }
+
+        if (returnsImmediately.get() > 10) {
+            rebuildSelector();
+            returnsImmediately.set(0);
+        }
+        return returnsImmediately.get();
     }
 
     private void rebuildSelector()
@@ -312,5 +328,16 @@ public final class Poller extends PollerBase implements Runnable
         retired = true;
 
         ctx.closeSelector(oldSelector);
+    }
+
+    Selector selector()
+    {
+        return selector;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "Poller [" + worker.getName() + "]";
     }
 }
