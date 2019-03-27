@@ -117,7 +117,7 @@ public class ZConfig
             ZConfig child = entry.getValue();
             assert (child != null);
             if (child.value != null) {
-                values.put(prefix + key, child.value);
+                values.put(prefix + '/'+ key, child.value);
             }
             child.fillValues(prefix + key + '/', values);
         }

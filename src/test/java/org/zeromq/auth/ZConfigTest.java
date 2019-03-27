@@ -117,6 +117,16 @@ public class ZConfigTest
     }
 
     @Test
+    public void testGetValues()
+    {
+        ZConfig config = new ZConfig("root", null);
+        config.putValue("inproc://abcdef", "service1");
+        assertThat(config.getValues().keySet().iterator().next(), is("inproc://abcdef"));
+        assertThat(config.getValue("inproc://abcdef"), is("service1"));
+        assertThat(config.getValues().get("inproc://abcdef"), is("service1"));
+    }
+
+    @Test
     public void testLoadSave() throws IOException
     {
         conf.save(testFolder + "/test.cert");
