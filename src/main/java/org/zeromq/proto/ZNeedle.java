@@ -1,6 +1,8 @@
 package org.zeromq.proto;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -9,6 +11,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.zeromq.ZFrame;
+import org.zeromq.ZMQ;
 
 import zmq.util.Draft;
 import zmq.util.Utils;
@@ -154,6 +157,39 @@ public final class ZNeedle
         String value = Wire.getLongString(needle, needle.position());
         forward(value.length() + 4);
         return value;
+    }
+
+    public String getZeroTerminatedString()
+    {
+        return getZeroTerminatedString(ZMQ.CHARSET);
+    }
+
+    public String getZeroTerminatedString(Charset charset)
+    {
+        ByteArrayOutputStream builder = new ByteArrayOutputStream();
+        checkAvailable(1);
+        byte current = needle.get();
+        while(current != 0x0) {
+            builder.write(current);
+            if (!needle.hasRemaining()) {
+                throw new IllegalStateException("Terminal character not found in the frame");
+            }
+            current = needle.get();
+        }
+        return builder.toString(charset);
+    }
+
+    public void putZeroTerminatedString(String value)
+    {
+        putZeroTerminatedString(value, ZMQ.CHARSET);
+    }
+
+    public void putZeroTerminatedString(String value, Charset charset)
+    {
+        byte[] bytes = value.getBytes(charset);
+        checkAvailable(bytes.length + 1);
+        needle.put(bytes);
+        needle.put((byte) 0x0);
     }
 
     //  Put a string to the frame

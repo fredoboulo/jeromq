@@ -83,7 +83,7 @@ public class ZNeedleTest
     @Test
     public void testSimpleValues()
     {
-        ZFrame frame = new ZFrame(new byte[15 + 26 + 1 + 4 + 8 + 2]);
+        ZFrame frame = new ZFrame(new byte[15 + 26 + 1 + 4 + 8 + 2 + 15]);
         ZNeedle needle = new ZNeedle(frame);
 
         needle.putNumber1(1);
@@ -93,6 +93,7 @@ public class ZNeedleTest
         byte[] block = new byte[10];
         Arrays.fill(block, (byte) 2);
         needle.putBlock(block, 8);
+        needle.putZeroTerminatedString("zeroterminated");
         needle.putShortString("abcdefg");
         needle.putLongString("hijklmnopqrstuvwxyz");
         needle.putNumber2(421);
@@ -105,12 +106,13 @@ public class ZNeedleTest
         block = new byte[8];
         Arrays.fill(block, (byte) 2);
         assertThat(needle.getBlock(8), is(block));
+        assertThat(needle.getZeroTerminatedString(), is("zeroterminated"));
         assertThat(needle.getShortString(), is("abcdefg"));
         assertThat(needle.getLongString(), is("hijklmnopqrstuvwxyz"));
         assertThat(needle.getNumber2(), is(421));
 
         String s = needle.toString();
-        assertThat(s, is("ZNeedle [position=56, ceiling=56]"));
+        assertThat(s, is(String.format("ZNeedle [position=%1$d, ceiling=%1$d]", frame.size())));
     }
 
     @Test
@@ -128,6 +130,33 @@ public class ZNeedleTest
         needle = new ZNeedle(frame);
         assertThat(needle.getLongString(), is(string));
         assertThat(needle.getNumber2(), is(42));
+    }
+
+    @Test
+    public void testZeroTerminatedString()
+    {
+        ZFrame frame = new ZFrame(new byte[30]);
+        ZNeedle needle = new ZNeedle(frame);
+
+        byte[] bytes = new byte[27];
+        Arrays.fill(bytes, (byte) 'B');
+        String string = new String(bytes, ZMQ.CHARSET);
+        needle.putZeroTerminatedString(string);
+        needle.putNumber2(4210);
+
+        needle = new ZNeedle(frame);
+        assertThat(needle.getZeroTerminatedString(), is(string));
+        assertThat(needle.getNumber2(), is(4210));
+    }
+
+    @Test(expected=IllegalStateException.class)
+    public void testZeroTerminatedStringFailsToFindTermination()
+    {
+        byte[] bytes = new byte[30];
+        Arrays.fill(bytes, (byte) 'B');
+        ZFrame frame = new ZFrame(bytes);
+        ZNeedle needle = new ZNeedle(frame);
+        needle.getZeroTerminatedString();
     }
 
     @Test
