@@ -13,7 +13,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 import org.zeromq.SocketType;
 import org.zeromq.Utils;
 import org.zeromq.ZActor;
@@ -27,13 +26,11 @@ import org.zeromq.ZProxy;
 import org.zeromq.ZProxy.Plug;
 import org.zeromq.ZProxy.Proxy;
 
-import zmq.proxy.ProxyTests;
-
 /**
  * In this test, sockets are created in the main thread and closed in each application thread.
  * Finally the context is closed in the main thread.
  */
-@Category(ProxyTests.class)
+//@Category(ProxyTests.class)
 public class ZProxyZeroTcpTest
 {
     private final class ProxyExtension extends Proxy.SimpleProxy

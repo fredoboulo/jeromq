@@ -12,21 +12,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 import org.zeromq.SocketType;
 import org.zeromq.Utils;
 import org.zeromq.ZMQ;
 import org.zeromq.ZMQ.Context;
 import org.zeromq.ZMQ.Socket;
 
-import zmq.proxy.ProxyTests;
-
 /**
  * In this test, sockets are created in the main thread and closed in each application thread.
  * Finally the context is closed in the main thread.
  *
  */
-@Category(ProxyTests.class)
+//@Category(ProxyTests.class)
 public class ProxyZeroTcpTest
 {
     static class Client implements Runnable

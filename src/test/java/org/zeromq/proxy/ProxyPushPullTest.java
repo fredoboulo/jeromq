@@ -11,7 +11,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.LockSupport;
 
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 import org.zeromq.SocketType;
 import org.zeromq.Utils;
 import org.zeromq.ZContext;
@@ -24,14 +23,13 @@ import org.zeromq.ZMsg;
 
 import zmq.Helper;
 import zmq.ZError;
-import zmq.proxy.ProxyTests;
 
 /**
  * In this test, we create sockets in the main thread, start a proxy with it, some workers,
  * and close all sockets in the main thread.
  *
  */
-@Category(ProxyTests.class)
+//@Category(ProxyTests.class)
 public class ProxyPushPullTest
 {
     private static final String FRONTEND       = "tcp://*:";
