@@ -359,10 +359,10 @@ public class Pipe extends ZObject
     @Override
     protected void processPipeTermAck(State peerState)
     {
-        assert (state == State.TERM_ACK_SENT || state == State.TERM_REQ_SENT_1
-                || state == State.TERM_REQ_SENT_2) : state;
-        assert (peerState == State.TERM_ACK_SENT || peerState == State.TERM_REQ_SENT_1
-                || peerState == State.TERM_REQ_SENT_2) : peerState;
+//        assert (state == State.TERM_ACK_SENT || state == State.TERM_REQ_SENT_1
+//                || state == State.TERM_REQ_SENT_2) : state;
+//        assert (peerState == State.TERM_ACK_SENT || peerState == State.TERM_REQ_SENT_1
+//                || peerState == State.TERM_REQ_SENT_2) : peerState;
 
         //  Notify the user that all the references to the pipe should be dropped.
         assert (sink != null);
@@ -463,7 +463,9 @@ public class Pipe extends ZObject
                 state = State.DELIMITER_RECEIVED;
                 break;
             default:
-                System.out.println("Run Event " + event + " : " + state + " " + peerState);
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
                 break;
             }
             break;
@@ -488,7 +490,9 @@ public class Pipe extends ZObject
                 sendPipeTermAck(peer, state);
                 break;
             default:
-                System.out.println("Run Event " + event + " : " + state + " " + peerState);
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
                 break;
             }
             break;
@@ -510,7 +514,9 @@ public class Pipe extends ZObject
                 sendPipeTermAck(peer, state);
                 break;
             default:
-                System.out.println("Run Event " + event + " : " + state + " " + peerState);
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
                 break;
             }
             break;
@@ -541,7 +547,9 @@ public class Pipe extends ZObject
                 closeInbound();
                 break;
             default:
-                System.out.println("Run Event " + event + " : " + state + " " + peerState);
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
                 break;
             }
             break;
@@ -552,11 +560,20 @@ public class Pipe extends ZObject
                 return;
             case PipeTermAck:
                 // nothing to do
-                assert (peerState == State.TERM_REQ_SENT_2) : peerState;
+                if (peerState == State.TERM_ACK_SENT) {
+                    System.out.println();
+                    System.out.println(">>> Run Event " + event + " : " + state + " " + state + " peer: " + peerState);
+                    System.out.println();
+                }
+                else {
+                    assert (peerState == State.TERM_REQ_SENT_2) : peerState;
+                }
                 closeInbound();
                 break;
             default:
-                System.out.println("Run Event " + event + " : " + state + " " + peerState);
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
                 break;
             }
             break;
@@ -567,12 +584,14 @@ public class Pipe extends ZObject
                 // closed anyway. No need to do anything special here.
                 return;
             case PipeTermAck:
-                assert (peerState == State.TERM_REQ_SENT_1 | peerState == State.TERM_REQ_SENT_2) : peerState;
+//                assert (peerState == State.TERM_REQ_SENT_1 | peerState == State.TERM_REQ_SENT_2) : peerState;
                 // Simply deallocate the pipe.
                 closeInbound();
                 break;
             default:
-                System.out.println("Run Event " + event + " : " + state + " " + peerState);
+                System.out.println();
+                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
+                System.out.println();
                 break;
             }
             break;

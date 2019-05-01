@@ -44,7 +44,7 @@ public class ProxyPushPullTest
     public void testStressProxyZMQUnit() throws Exception
     {
         int workers = 1;
-        int sleep = 30 * workers;
+        int sleep = 10 * workers;
         int loops = 500;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
@@ -63,8 +63,8 @@ public class ProxyPushPullTest
     public void testStressProxyZMQ() throws Exception
     {
         int workers = 3;
-        int sleep = 30 * workers + 30;
-        int loops = 100;
+        int sleep = 3 * workers + 10;
+        int loops = 500;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
                 System.out.printf(Helper.rewind(72 + 7 + 4 * workers));
@@ -82,8 +82,8 @@ public class ProxyPushPullTest
     public void testStressProxyJeromq() throws Exception
     {
         int workers = 9;
-        int sleep = 30 * workers + 30;
-        int loops = 2;
+        int sleep = 3 * workers + 10;
+        int loops = 200;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
                 System.out.printf(Helper.rewind(72 + 7 + 4 * workers));
@@ -101,8 +101,8 @@ public class ProxyPushPullTest
     public void testStressProxyZeromq() throws Exception
     {
         int workers = 5;
-        int sleep = 30 * workers + 100;
-        int loops = 50;
+        int sleep = 3 * workers + 10;
+        int loops = 500;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
                 System.out.printf(Helper.rewind(72 + 7 + 4 * workers));
