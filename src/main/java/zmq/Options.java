@@ -394,7 +394,7 @@ public class Options
 
         case ZMQ.ZMQ_ZAP_DOMAIN:
             String domain = parseString(option, optval);
-            if (domain != null && domain.length() < 256) {
+            if (domain.length() < 256) {
                 zapDomain = domain;
                 return true;
             }
@@ -554,10 +554,7 @@ public class Options
             Class<? extends MsgAllocator> msgAllocator = clazz.asSubclass(MsgAllocator.class);
             return msgAllocator.newInstance();
         }
-        catch (InstantiationException e) {
-            throw new IllegalArgumentException(e);
-        }
-        catch (IllegalAccessException e) {
+        catch (InstantiationException | IllegalAccessException e) {
             throw new IllegalArgumentException(e);
         }
     }

@@ -1,7 +1,5 @@
 package perf;
 
-import java.util.Objects;
-
 public class MetricEntry
 {
     final int msgs;
@@ -11,7 +9,12 @@ public class MetricEntry
     @Override
     public int hashCode()
     {
-        return Objects.hash(msgs, size, type);
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + msgs;
+        result = prime * result + size;
+        result = prime * result + type;
+        return result;
     }
 
     @Override

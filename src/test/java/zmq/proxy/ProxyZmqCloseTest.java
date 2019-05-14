@@ -278,7 +278,7 @@ public class ProxyZmqCloseTest extends Thread
         System.out.printf("%s ZMQ v%s %s ", ProxyZmqCloseTest.class.getSimpleName(), " ZMQ v", getVersionString());
         long start = System.currentTimeMillis();
         proxy.start();
-        Thread.sleep(500);
+        Thread.sleep(100);
         proxy.stopProxyThread();
         proxy.join();
         long end = System.currentTimeMillis();

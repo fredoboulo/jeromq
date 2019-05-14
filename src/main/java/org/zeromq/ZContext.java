@@ -300,6 +300,22 @@ public class ZContext implements Closeable
     }
 
     /**
+     * The maximum number of sockets allowed on the context
+     */
+    public int getMaxSockets()
+    {
+        return context.getMaxSockets();
+    }
+
+    /**
+     * Sets the maximum number of sockets allowed on the context
+     */
+    public boolean setMaxSockets(int maxSockets)
+    {
+        return context.setMaxSockets(maxSockets);
+    }
+
+    /**
      * @return the main
      */
     public boolean isMain()

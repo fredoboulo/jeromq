@@ -45,7 +45,7 @@ public abstract class Own extends ZObject
 
     //  The object is not living within an I/O thread. It has it's own
     //  thread outside of 0MQ infrastructure.
-    protected Own(Ctx parent, int tid)
+    Own(Ctx parent, int tid)
     {
         super(parent, tid);
         sendSeqnum = new AtomicLong(0);
@@ -118,7 +118,7 @@ public abstract class Own extends ZObject
     }
 
     //  Terminate owned object
-    protected final void termChild(Own object)
+    final void termChild(Own object)
     {
         processTermReq(object);
     }
@@ -158,7 +158,6 @@ public abstract class Own extends ZObject
         if (terminating) {
             registerTermAcks(object);
             sendTerm(object, 0);
-            return;
         }
     }
 
@@ -222,7 +221,7 @@ public abstract class Own extends ZObject
         owned.removeAll(objects);
     }
 
-    protected final void registerTermAcks(Object object)
+    final void registerTermAcks(Object object)
     {
         pendingAcks.add(object);
         owned.remove(object);

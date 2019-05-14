@@ -91,7 +91,8 @@ public class ZError
     public static final int ESOCKET = ZMQ_HAUSNUMERO + 106;
     public static final int EMFILE  = ZMQ_HAUSNUMERO + 107;
 
-    public static final int EPROTO = ZMQ_HAUSNUMERO + 108;
+    public static final int EPROTO    = ZMQ_HAUSNUMERO + 108;
+    public static final int ESTOPPING = ZMQ_HAUSNUMERO + 109;
 
     public static int exccode(java.io.IOException e)
     {

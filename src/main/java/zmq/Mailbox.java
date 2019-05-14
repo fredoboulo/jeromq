@@ -141,7 +141,7 @@ public final class Mailbox
                 Command.Type type = cmd.type;
                 // it happens sometimes on Ctx.terminate -> SocketBase.stop
                 // or on the terminater
-                assert (type == Command.Type.DONE);
+                assert (type == Command.Type.DONE || type == Command.Type.STOP) : type;
                 cmd = cpipe.read();
             }
         }

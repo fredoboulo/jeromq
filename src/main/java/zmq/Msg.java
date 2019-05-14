@@ -280,7 +280,7 @@ public class Msg
         return this;
     }
 
-    public void resetMetadata()
+    void resetMetadata()
     {
         setMetadata(null);
     }
@@ -382,12 +382,12 @@ public class Msg
         return String.format("#zmq.Msg{type=%s, size=%s, flags=%s}", type, size, flags);
     }
 
-    protected final int getWriteIndex()
+    final int getWriteIndex()
     {
         return writeIndex;
     }
 
-    protected final void setWriteIndex(int writeIndex)
+    final void setWriteIndex(int writeIndex)
     {
         this.writeIndex = writeIndex;
     }

@@ -44,8 +44,8 @@ public class ProxyPushPullTest
     public void testStressProxyZMQUnit() throws Exception
     {
         int workers = 1;
-        int sleep = 10 * workers;
-        int loops = 500;
+        int sleep = 5 * workers;
+        int loops = 5000;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
                 System.out.printf(Helper.rewind(72 + 7 + 4 * workers));
@@ -63,8 +63,8 @@ public class ProxyPushPullTest
     public void testStressProxyZMQ() throws Exception
     {
         int workers = 3;
-        int sleep = 3 * workers + 10;
-        int loops = 500;
+        int sleep = 5;
+        int loops = 5000;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
                 System.out.printf(Helper.rewind(72 + 7 + 4 * workers));
@@ -74,6 +74,7 @@ public class ProxyPushPullTest
             performTestZmq(workers, sleep);
             long end = System.currentTimeMillis();
             System.out.printf(" performed in %3d millis.", (end - start));
+//            System.out.println();
         }
         System.out.println();
     }
@@ -82,8 +83,8 @@ public class ProxyPushPullTest
     public void testStressProxyJeromq() throws Exception
     {
         int workers = 9;
-        int sleep = 3 * workers + 10;
-        int loops = 200;
+        int sleep = 5;
+        int loops = 2000;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
                 System.out.printf(Helper.rewind(72 + 7 + 4 * workers));
@@ -93,6 +94,7 @@ public class ProxyPushPullTest
             performTestJeromq(workers, sleep);
             long end = System.currentTimeMillis();
             System.out.printf(" performed in %3d millis.", (end - start));
+            System.out.println();
         }
         System.out.println();
     }
@@ -101,8 +103,8 @@ public class ProxyPushPullTest
     public void testStressProxyZeromq() throws Exception
     {
         int workers = 5;
-        int sleep = 3 * workers + 10;
-        int loops = 500;
+        int sleep = 5;
+        int loops = 5000;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
                 System.out.printf(Helper.rewind(72 + 7 + 4 * workers));
@@ -112,11 +114,12 @@ public class ProxyPushPullTest
             performTestZeromq(workers, sleep);
             long end = System.currentTimeMillis();
             System.out.printf(" performed in %3d millis.", (end - start));
+//            System.out.println();
         }
         System.out.println();
     }
 
-    void performTestZmq(int workers, long sleep)
+    private void performTestZmq(int workers, long sleep)
             throws InterruptedException, BrokenBarrierException, TimeoutException, IOException
     {
         final zmq.Ctx ctx = zmq.ZMQ.createContext();
@@ -127,25 +130,20 @@ public class ProxyPushPullTest
 
         final CountDownLatch stopped = new CountDownLatch(workers + 1);
         final CyclicBarrier started = new CyclicBarrier(workers + 1);
-        List<zmq.SocketBase> workerSocks = new ArrayList<zmq.SocketBase>();
+        List<zmq.SocketBase> workerSocks = new ArrayList<>();
         for (int i = 0; i < workers; i++) {
             zmq.SocketBase workerSock = zmq.ZMQ.socket(ctx, zmq.ZMQ.ZMQ_PULL);
             workerSock.connect(PROXY_WORKERS);
             workerSocks.add(workerSock);
         }
 
-        Runnable runnable = new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    zmq.ZMQ.proxy(recvMsgSock, processMsgSock, null);
-                }
-                finally {
-                    System.out.print(PROXY);
-                    stopped.countDown();
-                }
+        Runnable runnable = () -> {
+            try {
+                zmq.ZMQ.proxy(recvMsgSock, processMsgSock, null);
+            }
+            finally {
+                System.out.print(PROXY);
+                stopped.countDown();
             }
         };
         Thread proxyThr = new Thread(runnable, PROXY_THREAD);
@@ -154,34 +152,26 @@ public class ProxyPushPullTest
         int idx = 0;
         for (final zmq.SocketBase workerSock : workerSocks) {
             ++idx;
-            Thread workerThr = new Thread(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    try {
-                        while (true) {
-                            started.await();
-                            zmq.Msg msg = workerSock.recv(0);
+            Thread workerThr = new Thread(() -> {
+                try {
+                    while (true) {
+                        started.await();
+                        zmq.Msg msg = workerSock.recv(0);
 
-                            if (msg == null) {
-                                break;
-                            }
-                            System.out.println(msg);
-                            // Process the msg!
-                            LockSupport.parkNanos(TimeUnit.NANOSECONDS.convert(10, TimeUnit.MILLISECONDS));
+                        if (msg == null) {
+                            break;
                         }
+                        System.out.println(msg);
+                        // Process the msg!
+                        LockSupport.parkNanos(TimeUnit.NANOSECONDS.convert(10, TimeUnit.MILLISECONDS));
                     }
-                    catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    catch (BrokenBarrierException e) {
-                        e.printStackTrace();
-                    }
-                    finally {
-                        System.out.printf(WORKER_PATTERN, Thread.currentThread().getName());
-                        stopped.countDown();
-                    }
+                }
+                catch (InterruptedException | BrokenBarrierException e) {
+                    e.printStackTrace();
+                }
+                finally {
+                    System.out.printf(WORKER_PATTERN, Thread.currentThread().getName());
+                    stopped.countDown();
                 }
             });
             workerThr.setName(String.format("W%d", idx));
@@ -206,7 +196,7 @@ public class ProxyPushPullTest
         System.out.print(CLOSED);
     }
 
-    void performTestJeromq(int workers, long sleep)
+    private void performTestJeromq(int workers, long sleep)
             throws InterruptedException, BrokenBarrierException, TimeoutException, IOException
     {
         final Context ctx = ZMQ.context(1);
@@ -217,26 +207,21 @@ public class ProxyPushPullTest
 
         final CyclicBarrier started = new CyclicBarrier(workers + 1);
         final CountDownLatch stopped = new CountDownLatch(workers + 1);
-        List<Socket> workerSocks = new ArrayList<Socket>();
+        List<Socket> workerSocks = new ArrayList<>();
         for (int i = 0; i < workers; i++) {
             Socket workerSock = ctx.socket(SocketType.PULL);
             workerSock.connect(PROXY_WORKERS);
             workerSocks.add(workerSock);
         }
 
-        Runnable runnable = new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    ZMQQueue queue = new ZMQQueue(ctx, recvMsgSock, processMsgSock);
-                    queue.run();
-                }
-                finally {
-                    System.out.print(PROXY);
-                    stopped.countDown();
-                }
+        Runnable runnable = () -> {
+            try {
+                ZMQQueue queue = new ZMQQueue(ctx, recvMsgSock, processMsgSock);
+                queue.run();
+            }
+            finally {
+                System.out.print(PROXY);
+                stopped.countDown();
             }
         };
         Thread proxyThr = new Thread(runnable, PROXY_THREAD);
@@ -245,40 +230,32 @@ public class ProxyPushPullTest
         int idx = 0;
         for (final Socket workerSock : workerSocks) {
             ++idx;
-            Thread workerThr = new Thread(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    try {
-                        while (true) {
-                            started.await();
-                            byte[] msg = workerSock.recv();
+            Thread workerThr = new Thread(() -> {
+                try {
+                    while (true) {
+                        started.await();
+                        byte[] msg = workerSock.recv();
 
-                            if (msg == null) {
-                                break;
-                            }
-                            System.out.println(msg);
-                            LockSupport.parkNanos(TimeUnit.NANOSECONDS.convert(10, TimeUnit.MILLISECONDS));
+                        if (msg == null) {
+                            break;
                         }
+                        System.out.println(msg);
+                        LockSupport.parkNanos(TimeUnit.NANOSECONDS.convert(10, TimeUnit.MILLISECONDS));
                     }
-                    catch (ZMQException e) {
-                        // as the worker does not check is the context was terminated,
-                        // and is not carefully closed
-                        // expect a terminated exception
-                        int errno = e.getErrorCode();
-                        assert (errno == zmq.ZError.ETERM);
-                    }
-                    catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    catch (BrokenBarrierException e) {
-                        e.printStackTrace();
-                    }
-                    finally {
-                        System.out.printf(WORKER_PATTERN, Thread.currentThread().getName());
-                        stopped.countDown();
-                    }
+                }
+                catch (ZMQException e) {
+                    // as the worker does not check is the context was terminated,
+                    // and is not carefully closed
+                    // expect a terminated exception
+                    int errno = e.getErrorCode();
+                    assert (errno == ZError.ESTOPPING);
+                }
+                catch (InterruptedException | BrokenBarrierException e) {
+                    e.printStackTrace();
+                }
+                finally {
+                    System.out.printf(WORKER_PATTERN, Thread.currentThread().getName());
+                    stopped.countDown();
                 }
             });
             workerThr.setName(String.format("X%d", idx));
@@ -303,7 +280,7 @@ public class ProxyPushPullTest
         System.out.print(CLOSED);
     }
 
-    void performTestZeromq(int workers, long sleep)
+    private void performTestZeromq(int workers, long sleep)
             throws InterruptedException, BrokenBarrierException, TimeoutException, IOException
     {
         final ZContext ctx = new ZContext(1);
@@ -314,25 +291,20 @@ public class ProxyPushPullTest
 
         final CyclicBarrier started = new CyclicBarrier(workers + 1);
         final CountDownLatch stopped = new CountDownLatch(workers + 1);
-        List<Socket> workerSockets = new ArrayList<Socket>();
+        List<Socket> workerSockets = new ArrayList<>();
         for (int i = 0; i < workers; i++) {
             Socket workerSock = ctx.createSocket(SocketType.PULL);
             workerSock.connect(PROXY_WORKERS);
             workerSockets.add(workerSock);
         }
 
-        Runnable runnable = new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    ZMQ.proxy(recvMsgSock, processMsgSock, null);
-                }
-                finally {
-                    System.out.print(PROXY);
-                    stopped.countDown();
-                }
+        Runnable runnable = () -> {
+            try {
+                ZMQ.proxy(recvMsgSock, processMsgSock, null);
+            }
+            finally {
+                System.out.print(PROXY);
+                stopped.countDown();
             }
         };
         Thread proxyThr = new Thread(runnable, PROXY_THREAD);
@@ -341,41 +313,33 @@ public class ProxyPushPullTest
         int idx = 0;
         for (final Socket workerSock : workerSockets) {
             ++idx;
-            Thread workerThr = new Thread(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    try {
-                        while (true) {
-                            started.await();
-                            ZMsg msg = ZMsg.recvMsg(workerSock);
-                            if (msg == null) {
-                                break;
-                            }
-                            System.out.println(msg);
-                            LockSupport.parkNanos(TimeUnit.NANOSECONDS.convert(10, TimeUnit.MILLISECONDS));
-                            // Process the msg!
-                            LockSupport.parkNanos(TimeUnit.NANOSECONDS.convert(10, TimeUnit.MILLISECONDS));
+            Thread workerThr = new Thread(() -> {
+                try {
+                    while (true) {
+                        started.await();
+                        ZMsg msg = ZMsg.recvMsg(workerSock);
+                        if (msg == null) {
+                            break;
                         }
+                        System.out.println(msg);
+                        LockSupport.parkNanos(TimeUnit.NANOSECONDS.convert(10, TimeUnit.MILLISECONDS));
+                        // Process the msg!
+                        LockSupport.parkNanos(TimeUnit.NANOSECONDS.convert(10, TimeUnit.MILLISECONDS));
                     }
-                    catch (ZMQException e) {
-                        // as the worker does not check is the context was terminated,
-                        // and is not carefully closed
-                        // expect a terminated exception
-                        int errno = e.getErrorCode();
-                        assert (errno == ZError.ETERM);
-                    }
-                    catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    catch (BrokenBarrierException e) {
-                        e.printStackTrace();
-                    }
-                    finally {
-                        System.out.printf(WORKER_PATTERN, Thread.currentThread().getName());
-                        stopped.countDown();
-                    }
+                }
+                catch (ZMQException e) {
+                    // as the worker does not check is the context was terminated,
+                    // and is not carefully closed
+                    // expect a terminated exception
+                    int errno = e.getErrorCode();
+                    assert (errno == ZError.ETERM);
+                }
+                catch (InterruptedException | BrokenBarrierException e) {
+                    e.printStackTrace();
+                }
+                finally {
+                    System.out.printf(WORKER_PATTERN, Thread.currentThread().getName());
+                    stopped.countDown();
                 }
             });
             workerThr.setName(String.format("Z%d", idx));

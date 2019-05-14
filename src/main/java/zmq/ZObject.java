@@ -56,7 +56,7 @@ public abstract class ZObject
             break;
 
         case STOP:
-            processStop(((Integer) cmd.arg).intValue());
+            processStop((Integer) cmd.arg);
             break;
 
         case PLUG:
@@ -121,17 +121,17 @@ public abstract class ZObject
         }
     }
 
-    protected final boolean registerEndpoint(String addr, Ctx.Endpoint endpoint)
+    final boolean registerEndpoint(String addr, Ctx.Endpoint endpoint)
     {
         return ctx.registerEndpoint(addr, endpoint);
     }
 
-    protected final boolean unregisterEndpoint(String addr, SocketBase socket)
+    final boolean unregisterEndpoint(String addr, SocketBase socket)
     {
         return ctx.unregisterEndpoint(addr, socket);
     }
 
-    protected final void unregisterEndpoints(SocketBase socket)
+    final void unregisterEndpoints(SocketBase socket)
     {
         ctx.unregisterEndpoints(socket);
     }
@@ -141,12 +141,12 @@ public abstract class ZObject
         return ctx.findEndpoint(addr);
     }
 
-    protected final void pendConnection(String addr, Ctx.Endpoint endpoint, Pipe[] pipes)
+    final void pendConnection(String addr, Ctx.Endpoint endpoint, Pipe[] pipes)
     {
         ctx.pendConnection(addr, endpoint, pipes);
     }
 
-    protected final void connectPending(String addr, SocketBase bindSocket)
+    final void connectPending(String addr, SocketBase bindSocket)
     {
         ctx.connectPending(addr, bindSocket);
     }
@@ -166,16 +166,16 @@ public abstract class ZObject
     {
         //  'stop' command goes always from administrative thread to
         //  the current object.
-        Command cmd = new Command(this, Command.Type.STOP, Integer.valueOf(tid));
+        Command cmd = new Command(this, Command.Type.STOP, tid);
         ctx.sendCommand(tid, cmd);
     }
 
-    protected final void sendPlug(Own destination)
+    final void sendPlug(Own destination)
     {
         sendPlug(destination, true);
     }
 
-    protected final void sendPlug(Own destination, boolean incSeqnum)
+    final void sendPlug(Own destination, boolean incSeqnum)
     {
         if (incSeqnum) {
             destination.incSeqnum();
@@ -185,7 +185,7 @@ public abstract class ZObject
         sendCommand(cmd);
     }
 
-    protected final void sendOwn(Own destination, Own object)
+    final void sendOwn(Own destination, Own object)
     {
         destination.incSeqnum();
         Command cmd = new Command(destination, Command.Type.OWN, object);
@@ -252,19 +252,19 @@ public abstract class ZObject
         sendCommand(cmd);
     }
 
-    protected final void sendTermReq(Own destination, Own object)
+    final void sendTermReq(Own destination, Own object)
     {
         Command cmd = new Command(destination, Command.Type.TERM_REQ, object);
         sendCommand(cmd);
     }
 
-    protected final void sendTerm(Own destination, int linger)
+    final void sendTerm(Own destination, int linger)
     {
         Command cmd = new Command(destination, Command.Type.TERM, linger);
         sendCommand(cmd);
     }
 
-    protected final void sendTermAck(Own destination)
+    final void sendTermAck(Own destination)
     {
         Command cmd = new Command(destination, Command.Type.TERM_ACK, this);
         sendCommand(cmd);
@@ -282,13 +282,13 @@ public abstract class ZObject
         sendCommand(cmd);
     }
 
-    protected final void sendInprocConnected(SocketBase socket)
+    final void sendInprocConnected(SocketBase socket)
     {
         Command cmd = new Command(socket, Command.Type.INPROC_CONNECTED);
         sendCommand(cmd);
     }
 
-    protected final void sendDone()
+    final void sendDone()
     {
         Command cmd = new Command(null, Command.Type.DONE);
         ctx.sendCommand(Ctx.TERM_TID, cmd);

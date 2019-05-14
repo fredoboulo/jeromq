@@ -5,6 +5,9 @@ import zmq.Msg;
 import zmq.ZObject;
 import zmq.util.Blob;
 
+import java.util.ArrayList;
+import java.util.List;
+
 //  Note that pipe can be stored in three different arrays.
 //  The array of inbound pipes (1), the array of outbound pipes (2) and
 //  the generic array of pipes to deallocate (3).
@@ -71,6 +74,7 @@ public class Pipe extends ZObject
     }
 
     private State state;
+    private final List<State> states = new ArrayList<>();
 
     //  If true, we receive all the pending inbound messages before
     //  terminating. If false, we terminate immediately when the peer
@@ -104,7 +108,7 @@ public class Pipe extends ZObject
         peersMsgsRead = 0;
         peer = null;
         sink = null;
-        state = State.ACTIVE;
+        state(State.ACTIVE);
         this.delay = true;
         this.conflate = conflate;
 
@@ -125,9 +129,9 @@ public class Pipe extends ZObject
         //   each to pass messages in one direction.
 
         YPipeBase<Msg> upipe1 = conflates[0] ? new YPipeConflate<>()
-                : new YPipe<Msg>(Config.MESSAGE_PIPE_GRANULARITY.getValue());
+                : new YPipe<>(Config.MESSAGE_PIPE_GRANULARITY.getValue());
         YPipeBase<Msg> upipe2 = conflates[1] ? new YPipeConflate<>()
-                : new YPipe<Msg>(Config.MESSAGE_PIPE_GRANULARITY.getValue());
+                : new YPipe<>(Config.MESSAGE_PIPE_GRANULARITY.getValue());
 
         pipes[0] = new Pipe(parents[0], upipe1, upipe2, hwms[1], hwms[0], conflates[0]);
         pipes[1] = new Pipe(parents[1], upipe2, upipe1, hwms[0], hwms[1], conflates[1]);
@@ -136,6 +140,12 @@ public class Pipe extends ZObject
         pipes[1].setPeer(pipes[0]);
 
         return pipes;
+    }
+
+    private void state(State newState)
+    {
+        states.add(newState);
+        this.state = newState;
     }
 
     //  Pipepair uses this function to let us know about
@@ -309,7 +319,13 @@ public class Pipe extends ZObject
     {
         if (!inActive && (state == State.ACTIVE || state == State.WAITING_FOR_DELIMITER)) {
             inActive = true;
-            sink.readActivated(this);
+            try {
+                sink.readActivated(this);
+            }
+            catch (IndexOutOfBoundsException e) {
+                System.out.println(state);
+                e.printStackTrace();
+            }
         }
     }
 
@@ -440,9 +456,9 @@ public class Pipe extends ZObject
             case Terminate:
                 // The simple sync termination case. Ask the peer to terminate and wait
                 // for the ack.
-                state = State.TERM_REQ_SENT_1;
-                sendPipeTerm(peer);
+                state(State.TERM_REQ_SENT_1);
                 writeDelimiter();
+                sendPipeTerm(peer);
                 break;
             case PipeTerm:
                 // This is the simple case of peer-induced termination. If there are no
@@ -451,48 +467,42 @@ public class Pipe extends ZObject
                 // Otherwise we'll hang up in waiting_for_delimiter state till all
                 // pending messages are read.
                 if (delay) {
-                    state = State.WAITING_FOR_DELIMITER;
+                    state(State.WAITING_FOR_DELIMITER);
                 }
                 else {
-                    state = State.TERM_ACK_SENT;
+                    state(State.TERM_ACK_SENT);
                     outpipe = null;
                     sendPipeTermAck(peer, state);
                 }
                 break;
             case Delimiter:
-                state = State.DELIMITER_RECEIVED;
+                state(State.DELIMITER_RECEIVED);
                 break;
             default:
-                System.out.println();
-                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
-                System.out.println();
+                assert (false) : event + " " + state;
                 break;
             }
             break;
         case WAITING_FOR_DELIMITER:
             switch (event) {
             case Terminate:
+                writeDelimiter();
                 if (!delay) {
                     // There are still pending messages available, but the user calls
                     // 'terminate'. We can act as if all the pending messages were read.
                     outpipe = null;
-                    state = State.TERM_ACK_SENT;
+                    state(State.TERM_ACK_SENT);
                     sendPipeTermAck(peer, state);
                 }
-                else {
-                    // If there are pending messages still available, do nothing.
-                }
-                writeDelimiter();
+                // If there are pending messages still available, do nothing.
                 break;
             case Delimiter:
                 outpipe = null;
-                state = State.TERM_ACK_SENT;
+                state(State.TERM_ACK_SENT);
                 sendPipeTermAck(peer, state);
                 break;
             default:
-                System.out.println();
-                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
-                System.out.println();
+                assert (false) : event + " " + state;
                 break;
             }
             break;
@@ -502,21 +512,19 @@ public class Pipe extends ZObject
                 // We've already got delimiter, but not term command yet. We can ignore
                 // the delimiter and ack synchronously terminate as if we were in
                 // active state.
-                state = State.TERM_REQ_SENT_1;
-                sendPipeTerm(peer);
+                state(State.TERM_REQ_SENT_1);
                 writeDelimiter();
+                sendPipeTerm(peer);
                 break;
             case PipeTerm:
                 // Delimiter happened to arrive before the term command. Now we have the
                 // term command as well, so we can move straight to term_ack_sent state.
-                state = State.TERM_ACK_SENT;
+                state(State.TERM_ACK_SENT);
                 outpipe = null;
                 sendPipeTermAck(peer, state);
                 break;
             default:
-                System.out.println();
-                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
-                System.out.println();
+                assert (false) : event + " " + state;
                 break;
             }
             break;
@@ -529,27 +537,21 @@ public class Pipe extends ZObject
                 // This is the case where both ends of the pipe are closed in parallel.
                 // We simply reply to the request by ack and continue waiting for our
                 // own ack.
-                state = State.TERM_REQ_SENT_2;
+                state(State.TERM_REQ_SENT_2);
                 outpipe = null;
                 sendPipeTermAck(peer, state);
                 break;
             case PipeTermAck:
                 outpipe = null;
-                switch (peerState) {
-                case TERM_ACK_SENT:
+                if (peerState == State.TERM_ACK_SENT) {
                     // we have to ack the peer before deallocating this side of the pipe.
                     sendPipeTermAck(peer, state);
-                    break;
-                default:
-                    // in other cases, no need to send another ack
-                    break;
                 }
+                // in other cases, no need to send another ack
                 closeInbound();
                 break;
             default:
-                System.out.println();
-                System.out.println("Run Event " + event + " > state: " + state + " peer: " + peerState);
-                System.out.println();
+                assert (false) : event + " " + state;
                 break;
             }
             break;
@@ -560,14 +562,7 @@ public class Pipe extends ZObject
                 return;
             case PipeTermAck:
                 // nothing to do
-                if (peerState == State.TERM_ACK_SENT) {
-                    System.out.println();
-                    System.out.println(">>> Run Event " + event + " : " + state + " " + state + " peer: " + peerState);
-                    System.out.println();
-                }
-                else {
-                    assert (peerState == State.TERM_REQ_SENT_2) : peerState;
-                }
+                assert (peerState == State.TERM_REQ_SENT_2 || peerState == State.TERM_ACK_SENT) : peerState;
                 closeInbound();
                 break;
             default:

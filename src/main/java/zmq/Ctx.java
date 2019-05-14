@@ -147,7 +147,7 @@ public class Ctx
 
     public Ctx()
     {
-        tag = 0xabadcafe;
+        active = true;
         reaper = null;
         slotCount = 0;
         slots = null;
@@ -193,8 +193,15 @@ public class Ctx
         finally {
             selectorSync.unlock();
         }
+        active = false;
+    }
 
-        tag = 0xdeadbeef;
+    /**
+     * @return false if {@link #terminate()}terminate() has been called.
+     */
+    public boolean isActive()
+    {
+        return active;
     }
 
     /**
