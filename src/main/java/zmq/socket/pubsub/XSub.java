@@ -7,7 +7,7 @@ import zmq.ZError;
 import zmq.ZMQ;
 import zmq.pipe.Pipe;
 import zmq.socket.FQ;
-import zmq.socket.pubsub.Trie.ITrieHandler;
+import zmq.socket.pubsub.Tree.ITrieHandler;
 import zmq.util.Blob;
 
 public class XSub extends SocketBase

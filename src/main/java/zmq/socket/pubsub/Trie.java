@@ -6,13 +6,8 @@ import zmq.Msg;
 import zmq.pipe.Pipe;
 import zmq.util.Utils;
 
-class Trie
+class Trie implements Tree
 {
-    public interface ITrieHandler
-    {
-        void added(byte[] data, int size, Pipe arg);
-    }
-
     private int refcnt;
 
     private byte min;
@@ -33,6 +28,7 @@ class Trie
 
     //  Add key to the trie. Returns true if this is a new item in the trie
     //  rather than a duplicate.
+    @Override
     public boolean add(Msg msg, int start, int size)
     {
         //  We are at the node corresponding to the prefix. We are done.
@@ -101,6 +97,7 @@ class Trie
 
     //  Remove key from the trie. Returns true if the item is actually
     //  removed from the trie.
+    @Override
     public boolean rm(Msg msg, int start, int size)
     {
         //  TODO: Shouldn't an error be reported if the key does not exist?
@@ -214,6 +211,7 @@ class Trie
     }
 
     //  Check whether particular key is in the trie.
+    @Override
     public boolean check(ByteBuffer data)
     {
         assert (data != null);
@@ -256,6 +254,7 @@ class Trie
     }
 
     //  Apply the function supplied to each subscription in the trie.
+    @Override
     public void apply(ITrieHandler func, Pipe arg)
     {
         applyHelper(null, 0, 0, func, arg);
