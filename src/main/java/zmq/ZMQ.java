@@ -138,6 +138,7 @@ public class ZMQ
     public static final int ZMQ_MSG_ALLOCATION_HEAP_THRESHOLD = ZMQ_CUSTOM_OPTION + 4;
     public static final int ZMQ_HEARTBEAT_CONTEXT             = ZMQ_CUSTOM_OPTION + 5;
     public static final int ZMQ_SELECTOR_PROVIDERCHOOSER      = ZMQ_CUSTOM_OPTION + 6;
+    public static final int ZMQ_USE_RADIX                     = ZMQ_CUSTOM_OPTION + 7;
 
     /*  Message options                                                           */
     public static final int ZMQ_MORE = 1;

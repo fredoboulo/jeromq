@@ -300,6 +300,21 @@ public class ZContext implements Closeable
     }
 
     /**
+     * @return true if the XSUB and SUB sockets created with this context will use a radix tree, false if they will use a trie.
+     */
+    public boolean isUsingRadix() {
+        return this.context.isUsingRadix();
+    }
+
+    /**
+     * Changes the behaviour of all future XSUB and SUB sockets created with this context.
+     * @param useRadix true if the XSUB and SUB sockets created with this context will use a radix tree, false if they will use a trie.
+     */
+    public void setUsingRadix(boolean useRadix) {
+        this.context.setUsingRadix(useRadix);
+    }
+
+    /**
      * @return the main
      */
     public boolean isMain()

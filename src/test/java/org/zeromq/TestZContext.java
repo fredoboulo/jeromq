@@ -151,4 +151,14 @@ public class TestZContext
 
         assertThat(ctx.isClosed(), is(true));
     }
+
+    @Test
+    public void testUsingRadix()
+    {
+        try(ZContext ctx = new ZContext()) {
+            assertThat(ctx.isUsingRadix(), is(false));
+            ctx.setUsingRadix(true);
+            assertThat(ctx.isUsingRadix(), is(true));
+        }
+    }
 }

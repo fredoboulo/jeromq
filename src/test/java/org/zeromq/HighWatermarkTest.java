@@ -44,6 +44,7 @@ public class HighWatermarkTest
             Thread.currentThread().setName("Dispatcher");
 
             ZContext context = new ZContext(1);
+            context.setUsingRadix(true);
 
             //  Socket to send messages on
             ZMQ.Socket sender = context.createSocket(SocketType.PUSH);
@@ -108,6 +109,7 @@ public class HighWatermarkTest
             Thread.currentThread().setName("Worker #" + index);
 
             ZContext context = new ZContext(1);
+            context.setUsingRadix(true);
 
             //  Socket to receive messages on
             ZMQ.Socket receiver = context.createSocket(SocketType.PULL);

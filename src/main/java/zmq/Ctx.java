@@ -141,6 +141,8 @@ public class Ctx
     private final MultiMap<String, PendingConnection> pendingConnections = new MultiMap<>();
 
     private boolean ipv6;
+    // If true, use radix tree implementation instead of trie for XSUB and SUB sockets
+    private boolean radix;
 
     private final Errno errno = new Errno();
 
@@ -155,6 +157,7 @@ public class Ctx
         ioThreadCount = ZMQ.ZMQ_IO_THREADS_DFLT;
 
         ipv6 = false;
+        radix = false;
         blocky = true;
         slotSync = new ReentrantLock();
         endpointsSync = new ReentrantLock();
@@ -352,6 +355,15 @@ public class Ctx
                 optSync.unlock();
             }
         }
+        else if (option == ZMQ.ZMQ_USE_RADIX && optval >= 0) {
+            optSync.lock();
+            try {
+                radix = (optval != 0);
+            }
+            finally {
+                optSync.unlock();
+            }
+        }
         else {
             return false;
         }
@@ -372,6 +384,9 @@ public class Ctx
         }
         else if (option == ZMQ.ZMQ_IPV6) {
             rc = ipv6 ? 1 : 0;
+        }
+        else if (option == ZMQ.ZMQ_USE_RADIX) {
+            rc = radix ? 1 : 0;
         }
         else {
             throw new IllegalArgumentException("option = " + option);

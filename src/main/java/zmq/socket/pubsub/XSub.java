@@ -8,6 +8,7 @@ import zmq.ZMQ;
 import zmq.pipe.Pipe;
 import zmq.socket.FQ;
 import zmq.socket.pubsub.Tree.ITrieHandler;
+import zmq.socket.pubsub.radix.RadixTree;
 import zmq.util.Blob;
 
 public class XSub extends SocketBase
@@ -28,7 +29,7 @@ public class XSub extends SocketBase
     private final Dist dist;
 
     //  The repository of subscriptions.
-    private final Trie subscriptions;
+    private final Tree subscriptions;
 
     //  If true, 'message' contains a matching message to return on the
     //  next recv call.
@@ -55,7 +56,12 @@ public class XSub extends SocketBase
 
         fq = new FQ();
         dist = new Dist();
-        subscriptions = new Trie();
+        if (parent.get(ZMQ.ZMQ_USE_RADIX) == 0) {
+            subscriptions = new Trie();
+        }
+        else {
+            subscriptions = new RadixTree();
+        }
 
         message = new Msg();
     }

@@ -2,7 +2,6 @@ package zmq.socket.pubsub;
 
 import zmq.Msg;
 import zmq.pipe.Pipe;
-import zmq.util.Utils;
 
 import java.nio.ByteBuffer;
 

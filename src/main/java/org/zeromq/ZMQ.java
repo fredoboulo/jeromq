@@ -619,6 +619,16 @@ public class ZMQ
             return ctx.set(zmq.ZMQ.ZMQ_IPV6, ipv6 ? 1 : 0);
         }
 
+        public boolean isUsingRadix()
+        {
+            return ctx.get(zmq.ZMQ.ZMQ_USE_RADIX) != 0;
+        }
+
+        public boolean setUsingRadix(boolean useRadix)
+        {
+            return ctx.set(zmq.ZMQ.ZMQ_USE_RADIX, useRadix ? 1 : 0);
+        }
+
         /**
          * This is an explicit "destructor". It can be called to ensure the corresponding 0MQ
          * Context has been disposed of.
@@ -2434,6 +2444,11 @@ public class ZMQ
         public boolean setIPv6(boolean v6)
         {
             return setSocketOpt(zmq.ZMQ.ZMQ_IPV6, v6);
+        }
+
+        public boolean isUsingRadix()
+        {
+            return (Boolean) base.getSocketOptx(zmq.ZMQ.ZMQ_USE_RADIX);
         }
 
         /**

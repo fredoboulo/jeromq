@@ -1,5 +1,6 @@
 package zmq.util;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
@@ -9,6 +10,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SocketChannel;
 import java.security.SecureRandom;
+import java.util.List;
 
 import zmq.io.net.Address;
 import zmq.io.net.tcp.TcpUtils;
@@ -162,6 +164,22 @@ public class Utils
 
         buffer.limit(oldlimit).position(oldpos);
         return builder.toString();
+    }
+
+    public static byte[] toBytes(List<ByteBuffer> bytes)
+    {
+        try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+            for (ByteBuffer buf : bytes) {
+                buf = buf.duplicate();
+                while (buf.hasRemaining()) {
+                    stream.write(buf.get());
+                }
+            }
+            return stream.toByteArray();
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static void checkArgument(boolean expression, String errorMessage)

@@ -157,6 +157,9 @@ public class Options
     // the ping context that will be sent with each ping message.
     public byte[] heartbeatContext;
 
+    // If true, use radix tree implementation instead of trie for XSUB and SUB sockets
+    public boolean useRadix;
+
     public Class<? extends IDecoder> decoder;
     public Class<? extends IEncoder> encoder;
 
@@ -209,6 +212,8 @@ public class Options
         heartbeatInterval = 0;
         heartbeatTimeout = -1;
         heartbeatContext = new byte[0];
+
+        useRadix = false;
 
         identity = new byte[0];
         identitySize = (byte) identity.length;
@@ -698,6 +703,9 @@ public class Options
 
         case ZMQ.ZMQ_IPV6:
             return ipv6;
+
+        case ZMQ.ZMQ_USE_RADIX:
+            return useRadix;
 
         case ZMQ.ZMQ_TCP_KEEPALIVE:
             return tcpKeepAlive;
