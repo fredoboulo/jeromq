@@ -1,4 +1,4 @@
-package zmq.socket.pubsub;
+package zmq.socket.pubsub.tree;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;

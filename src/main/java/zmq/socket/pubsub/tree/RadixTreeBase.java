@@ -1,4 +1,4 @@
-package zmq.socket.pubsub.radix;
+package zmq.socket.pubsub.tree;
 
 import zmq.util.function.BiConsumer;
 import zmq.util.function.Function;
@@ -14,10 +14,10 @@ class RadixTreeBase
         private final int keyBytesMatched;
         private final int prefixBytesMatched;
         private final int edgeIndex;
-        private final Node currentNode;
-        private final Node parentNode;
+        private final RadixNode currentNode;
+        private final RadixNode parentNode;
 
-        MatchResult(int keyBytesMatched, int prefixBytesMatched, int edgeIndex, Node currentNode, Node parentNode)
+        MatchResult(int keyBytesMatched, int prefixBytesMatched, int edgeIndex, RadixNode currentNode, RadixNode parentNode)
         {
             this.keyBytesMatched = keyBytesMatched;
             this.prefixBytesMatched = prefixBytesMatched;
@@ -27,11 +27,11 @@ class RadixTreeBase
         }
     }
 
-    private final Node root;
+    private final RadixNode root;
 
     RadixTreeBase()
     {
-        this.root = Node.makeRootNode();
+        this.root = RadixNode.makeRootNode();
     }
 
     int size()
@@ -43,8 +43,8 @@ class RadixTreeBase
     {
         assert (key != null) : "Key cannot be null when looking for matches";
         // Node we're currently at in the traversal and its predecessors.
-        Node currentNode = root;
-        Node parentNode = currentNode;
+        RadixNode currentNode = root;
+        RadixNode parentNode = currentNode;
 
         int keyByteIndex = 0; // Index of the next byte to match in the key.
         int prefixByteIndex = 0; // Index of the next byte to match in the current node's prefix.
@@ -74,8 +74,8 @@ class RadixTreeBase
 
             // We need to match the rest of the key. Check if there's an
             // outgoing edge from this node.
-            Node nextNode = currentNode;
-            for (Node.Entry entry : currentNode.entries()) {
+            RadixNode nextNode = currentNode;
+            for (RadixNode.Entry entry : currentNode.entries()) {
                 if (entry.key.equals(key.get(keyByteIndex + key.position()))) {
                     edgeIndex = 1;
                     nextNode = entry.value;
@@ -105,7 +105,7 @@ class RadixTreeBase
         MatchResult result = match(key, false);
         int keyBytesMatched = result.keyBytesMatched;
         int prefixBytesMatched = result.prefixBytesMatched;
-        Node currentNode = result.currentNode;
+        RadixNode currentNode = result.currentNode;
 
         int keySize = key.remaining();
         if (keyBytesMatched != keySize) {
@@ -116,9 +116,9 @@ class RadixTreeBase
                 // that has the rest of the key as the prefix.
                 ByteBuffer newKey = key.duplicate();
                 newKey.position(keyBytesMatched + key.position());
-                Node keyNode = Node.makeNode(1, keySize - keyBytesMatched, newKey);
+                RadixNode keyNode = RadixNode.makeNode(1, keySize - keyBytesMatched, newKey);
 
-                currentNode.edgeAt(currentNode.edgesCount(), key.get(keyBytesMatched + key.position()), keyNode);
+                currentNode.add(currentNode.edgesCount(), key.get(keyBytesMatched + key.position()), keyNode);
                 return true;
             }
             // There was a mismatch, so we need to split this node.
@@ -127,15 +127,15 @@ class RadixTreeBase
             // One node will have the rest of the characters from the key,
             ByteBuffer newKey = key.duplicate();
             newKey.position(keyBytesMatched + key.position());
-            Node keyNode = Node.makeNode(1, keySize - keyBytesMatched, newKey);
+            RadixNode keyNode = RadixNode.makeNode(1, keySize - keyBytesMatched, newKey);
             // and the other node will have the rest of the characters
             // from the current node's prefix.
-            Node splitNode = currentNode.split(prefixBytesMatched);
+            RadixNode splitNode = currentNode.split(prefixBytesMatched);
             currentNode.refCount(0);
 
             // Add links to the new nodes.
-            currentNode.edgeAt(0, keyNode.prefix(0), keyNode);
-            currentNode.edgeAt(1, splitNode.prefix(0), splitNode);
+            currentNode.add(0, keyNode.prefix(0), keyNode);
+            currentNode.add(1, splitNode.prefix(0), splitNode);
             return true;
         }
 
@@ -146,11 +146,11 @@ class RadixTreeBase
 
             // Create a node that contains the rest of the characters from
             // the current node's prefix and the outgoing edges from the current node.
-            Node splitNode = currentNode.split(prefixBytesMatched);
+            RadixNode splitNode = currentNode.split(prefixBytesMatched);
 
             // Add the split node as an edge and set the refcount to 1
             // since this key wasn't inserted earlier.
-            currentNode.edgeAt(0, splitNode.prefix(key.position()), splitNode);
+            currentNode.add(0, splitNode.prefix(key.position()), splitNode);
             currentNode.refCount(1);
 
             return true;
@@ -174,8 +174,8 @@ class RadixTreeBase
         int keyBytesMatched = result.keyBytesMatched;
         int prefixBytesMatched = result.prefixBytesMatched;
         int edgeIndex = result.edgeIndex;
-        Node currentNode = result.currentNode;
-        Node parentNode = result.parentNode;
+        RadixNode currentNode = result.currentNode;
+        RadixNode parentNode = result.parentNode;
 
         int keySize = key.remaining();
         if (keyBytesMatched != keySize || prefixBytesMatched != currentNode.prefixLength() || currentNode.refCount() == 0) {
@@ -197,9 +197,9 @@ class RadixTreeBase
         }
         if (outgoingEdges == 1) {
             // Merge this node with the single child node.
-            Node child = currentNode.firstNode();
+            RadixNode child = currentNode.firstNode();
             // Append the child node's prefix to the current node.
-            currentNode.prefix(concat(currentNode.prefix(), child.prefix()));
+            currentNode.prefix(expand(currentNode.prefix(), child.prefix()));
             // Copy the rest of child node's data to the current node.
             currentNode.nodes(child);
             currentNode.refCount(child.refCount());
@@ -211,12 +211,12 @@ class RadixTreeBase
             // If the parent doesn't hold a key or if it isn't the root,
             // we can merge it with its single child node.
             assert (edgeIndex < 2);
-            Node otherChild = parentNode.firstNode();
+            RadixNode otherChild = parentNode.firstNode();
             if (edgeIndex == 0) {
                 otherChild = parentNode.secondNode();
             }
             // Append the child node's prefix to the parent node.
-            parentNode.prefix(concat(parentNode.prefix(), otherChild.prefix()));
+            parentNode.prefix(expand(parentNode.prefix(), otherChild.prefix()));
             // Copy the rest of child node's data to the parent node.
             parentNode.nodes(otherChild);
             parentNode.refCount(otherChild.refCount());
@@ -228,30 +228,30 @@ class RadixTreeBase
         // parent.
         assert (outgoingEdges == 0);
 
-        // Replace the edge to the current node with the last edge. An
-        // edge consists of a byte and a pointer to the next node. First
-        // replace the byte.
-        byte firstByte = currentNode.prefix(0);
-        parentNode.rm(edgeIndex, firstByte, currentNode);
-        // byte lastByte = parentNode.prefix(lastIndex);
-
-        // Move the chunk of pointers one byte to the left, effectively
-        // deleting the last byte in the region of first bytes by
-        // overwriting it.
-
-        // Shrink the parent node to the new size, which "deletes" the
-        // last pointer in the chunk of node pointers.
-
         // Nothing points to this node now, so we can reclaim it.
+        parentNode.remove(edgeIndex, currentNode.prefix(0), currentNode);
 
         return true;
     }
 
-    private ByteBuffer concat(ByteBuffer first, ByteBuffer second)
+    private ByteBuffer expand(ByteBuffer first, ByteBuffer second)
     {
         ByteBuffer buffer = second.duplicate();
+        assert (first.position() < second.position());
+        assert secondOverlapsFirst(first, second);
+        // the key of the second node already holds the beginning of the first node's prefix.
+        // we just need to rewind the position of the second key to the position of the first one.
         buffer.position(first.position());
         return buffer;
+    }
+
+    private boolean secondOverlapsFirst(ByteBuffer first, ByteBuffer second)
+    {
+        boolean rc = true;
+        for (int idx = first.position(); idx < second.position(); ++idx) {
+            rc &= first.get(idx) == second.get(idx);
+        }
+        return rc;
     }
 
     /**

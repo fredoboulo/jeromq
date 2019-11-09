@@ -1,9 +1,8 @@
-package zmq.socket.pubsub;
+package zmq.socket.pubsub.tree;
 
 import org.junit.Before;
 import org.junit.Test;
 import zmq.ZMQ;
-import zmq.socket.pubsub.radix.RadixTree;
 import zmq.util.Clock;
 
 import java.nio.ByteBuffer;
@@ -14,10 +13,10 @@ import java.util.Random;
 
 public class PerformanceRadixTreeTest
 {
-    private final int nkeys = 10000;
-    private final int nQueries = 1000000;
-    private final int warmupRuns = 10;
-    private final int samples = 10;
+    private final int nkeys = 10_000;
+    private final int nQueries = 1_000_000;
+    private final int warmupRuns = 100;
+    private final int samples = 50;
     private final int keyLength = 20;
 
     private final byte[] chars = "abcdefghijklmnopqrstuvwxyz0123456789".getBytes(ZMQ.CHARSET);

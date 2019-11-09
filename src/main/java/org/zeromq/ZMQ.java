@@ -619,11 +619,19 @@ public class ZMQ
             return ctx.set(zmq.ZMQ.ZMQ_IPV6, ipv6 ? 1 : 0);
         }
 
+        /**
+         * This is a DRAFT method, and may change without notice.
+         */
+        @Draft
         public boolean isUsingRadix()
         {
             return ctx.get(zmq.ZMQ.ZMQ_USE_RADIX) != 0;
         }
 
+        /**
+         * This is a DRAFT method, and may change without notice.
+         */
+        @Draft
         public boolean setUsingRadix(boolean useRadix)
         {
             return ctx.set(zmq.ZMQ.ZMQ_USE_RADIX, useRadix ? 1 : 0);

@@ -7,13 +7,15 @@ import zmq.ZError;
 import zmq.ZMQ;
 import zmq.pipe.Pipe;
 import zmq.socket.FQ;
-import zmq.socket.pubsub.Tree.ITrieHandler;
-import zmq.socket.pubsub.radix.RadixTree;
+import zmq.socket.pubsub.tree.Tree;
+import zmq.socket.pubsub.tree.Tree.TreeHandler;
+import zmq.socket.pubsub.tree.RadixTree;
+import zmq.socket.pubsub.tree.Trie;
 import zmq.util.Blob;
 
 public class XSub extends SocketBase
 {
-    private final class SendSubscription implements ITrieHandler
+    private final class SendSubscription implements TreeHandler
     {
         @Override
         public void added(byte[] data, int size, Pipe pipe)
@@ -40,7 +42,7 @@ public class XSub extends SocketBase
     //  there are following parts still waiting.
     private boolean more;
 
-    private final ITrieHandler sendSubscription = new SendSubscription();
+    private final TreeHandler sendSubscription = new SendSubscription();
 
     public XSub(Ctx parent, int tid, int sid)
     {

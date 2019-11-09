@@ -1,30 +1,29 @@
-package zmq.socket.pubsub.radix;
+package zmq.socket.pubsub.tree;
 
 import org.junit.Before;
 import org.junit.Test;
+import zmq.Msg;
 import zmq.ZMQ;
-import zmq.util.Utils;
-import zmq.util.function.BiConsumer;
-import zmq.util.function.Function;
 
-import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-public class RadixTreeBaseTest
+public class RadixTreeTest
 {
-    private RadixTreeBase tree;
+    private RadixTree tree;
 
     @Before
     public void setUp()
     {
-        tree = new RadixTreeBase();
+        tree = new RadixTree();
     }
 
     @Test
@@ -36,14 +35,14 @@ public class RadixTreeBaseTest
     @Test
     public void testAddSingleEntry()
     {
-        assertThat(add("foo"), is(true));
+        assertThat(add("\1foo"), is(true));
     }
 
     @Test
     public void testAddSameEntryTwice()
     {
-        add("test");
-        assertThat(add("test"), is(false));
+        add("\1test");
+        assertThat(add("\1test"), is(false));
     }
 
     @Test
@@ -96,8 +95,8 @@ public class RadixTreeBaseTest
     @Test
     public void testRemoveNullEntry()
     {
-        add("");
-        assertThat(rm(""), is(true));
+        add("0");
+        assertThat(rm("1"), is(true));
     }
 
     @Test
@@ -109,22 +108,22 @@ public class RadixTreeBaseTest
     @Test
     public void testCheckAddedEntry()
     {
-        add("entry");
+        add("1entry");
         assertThat(check("entry"), is(true));
     }
 
     @Test
     public void testCheckCommonPrefix()
     {
-        add("introduce");
-        add("introspect");
+        add("2introduce");
+        add("1introspect");
         assertThat(check("intro"), is(false));
     }
 
     @Test
     public void testCheckPrefix()
     {
-        add("toasted");
+        add("1toasted");
         assertThat(check("toast"), is(false));
         assertThat(check("toaste"), is(false));
         assertThat(check("toaster"), is(false));
@@ -140,32 +139,40 @@ public class RadixTreeBaseTest
     @Test
     public void testCheckQueryLongerThanEntry()
     {
-        add("foo");
+        add("1foo");
         assertThat(check("foobar"), is(true));
     }
 
     @Test
     public void testCheckNullEntryAdded()
     {
-        add("");
+        add("0");
         assertThat(check("all queries return true"), is(true));
     }
 
     @Test
     public void testSize()
     {
-        List<String> keys = Arrays.asList("tester", "water", "slow", "slower", "test", "team", "toast");
+        List<String> keys = Arrays.asList("1tester", "2water", "3slow", "4slower", "5test", "6team", "7toast");
 
-        keys.forEach(key -> assertThat(key, add(key), is(true)));
+        for (String key : keys) {
+            assertThat(key, add(key), is(true));
+        }
         assertThat(tree.size(), is(keys.size()));
 
-        keys.forEach(key -> assertThat(key, add(key), is(false)));
+        for (String key : keys) {
+            assertThat(key, add(key), is(false));
+        }
         assertThat(tree.size(), is(keys.size() * 2));
 
-        keys.forEach(key -> assertThat(key, rm(key), is(false)));
+        for (String key : keys) {
+            assertThat(key, rm(key), is(false));
+        }
         assertThat(tree.size(), is(keys.size()));
 
-        keys.forEach(key -> assertThat(key, rm(key), is(true)));
+        for (String key : keys) {
+            assertThat(key, rm(key), is(true));
+        }
         assertThat(tree.size(), is(0));
     }
 
@@ -173,41 +180,61 @@ public class RadixTreeBaseTest
     public void testApply()
     {
         Collection<String> keys = Arrays.asList("tester", "water", "slow", "slower", "test", "team", "toast");
-        keys.forEach(this::add);
+        for (String key : keys) {
+            add(0x1 + key);
+        }
 
         Set<String> result = new HashSet<>();
-        apply((key, list) -> list.add(key), result);
+        tree.apply((data, size, pipe) -> result.add(new String(data, ZMQ.CHARSET)), null);
         assertThat(result, is(new HashSet<>(keys)));
     }
 
-    public boolean add(String key)
+    @Test
+    public void testApplyEmpty()
     {
-        return op(key, tree::add);
+        add("" + 0x1);
+
+        Set<byte[]> result = new HashSet<>();
+        tree.apply((data, size, pipe) -> result.add(data), null);
+        assertThat(result.size(), is(1));
+        assertThat(result.iterator().next().length, is(0));
     }
 
-    public boolean rm(String key)
+    @Test
+    public void testApplyEmptyWithOthers()
     {
-        return op(key, tree::rm);
+        add("" + 0x1);
+        add("abcd");
+
+        List<byte[]> result = new ArrayList<>();
+        tree.apply((data, size, pipe) -> result.add(data), null);
+        assertThat(result.size(), is(2));
+
+        Iterator<byte[]> iterator = result.iterator();
+        assertThat(iterator.next().length, is(0));
+
+        byte[] last = iterator.next();
+        assertThat(last.length, is(3));
+        assertThat(last, is("bcd".getBytes(ZMQ.CHARSET)));
     }
 
-    public boolean check(String key)
+    private boolean add(String key)
     {
-        return op(key, tree::check);
+        return tree.add(transform(key), 1, Integer.MIN_VALUE);
     }
 
-    public <T> void apply(BiConsumer<String, T> function, T arg)
+    private boolean rm(String key)
     {
-        tree.apply(function, this::transform, arg);
+        return tree.rm(transform(key), 1, Integer.MIN_VALUE);
     }
 
-    private boolean op(String key, Function<ByteBuffer, Boolean> func)
+    private boolean check(String key)
     {
-        byte[] bytes = key.getBytes(ZMQ.CHARSET);
-        return func.apply(ByteBuffer.wrap(bytes));
+        return tree.check(transform(key).buf());
     }
 
-    private String transform(List<ByteBuffer> bytes)
+    private Msg transform(String msg)
     {
-        return new String(Utils.toBytes(bytes), ZMQ.CHARSET);
+        return new Msg(msg.getBytes(ZMQ.CHARSET));
     }
 }

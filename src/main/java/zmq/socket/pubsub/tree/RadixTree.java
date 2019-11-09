@@ -1,12 +1,16 @@
-package zmq.socket.pubsub.radix;
+package zmq.socket.pubsub.tree;
 
 import zmq.Msg;
 import zmq.pipe.Pipe;
-import zmq.socket.pubsub.Tree;
+import zmq.util.Draft;
 import zmq.util.Utils;
 
 import java.nio.ByteBuffer;
 
+/**
+ * This is a DRAFT method, and may change without notice.
+ */
+@Draft
 public class RadixTree implements Tree
 {
     private final RadixTreeBase tree = new RadixTreeBase();
@@ -39,7 +43,7 @@ public class RadixTree implements Tree
     }
 
     @Override
-    public void apply(ITrieHandler func, Pipe arg)
+    public void apply(TreeHandler func, Pipe arg)
     {
         Utils.checkArgument(func != null, "A handler needs to be set");
         tree.apply((buf, pipe) -> func.added(buf, buf.length, pipe), Utils::toBytes, arg);

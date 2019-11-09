@@ -1,4 +1,4 @@
-package zmq.socket.pubsub;
+package zmq.socket.pubsub.tree;
 
 import java.nio.ByteBuffer;
 
@@ -6,7 +6,7 @@ import zmq.Msg;
 import zmq.pipe.Pipe;
 import zmq.util.Utils;
 
-class Trie implements Tree
+public class Trie implements Tree
 {
     private int refcnt;
 
@@ -255,12 +255,12 @@ class Trie implements Tree
 
     //  Apply the function supplied to each subscription in the trie.
     @Override
-    public void apply(ITrieHandler func, Pipe arg)
+    public void apply(TreeHandler func, Pipe arg)
     {
         applyHelper(null, 0, 0, func, arg);
     }
 
-    private void applyHelper(byte[] buff, int buffsize, int maxBuffsize, ITrieHandler func, Pipe pipe)
+    private void applyHelper(byte[] buff, int buffsize, int maxBuffsize, TreeHandler func, Pipe pipe)
     {
         assert (func != null);
         assert (pipe != null);

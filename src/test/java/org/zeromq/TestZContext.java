@@ -155,7 +155,7 @@ public class TestZContext
     @Test
     public void testUsingRadix()
     {
-        try(ZContext ctx = new ZContext()) {
+        try (ZContext ctx = new ZContext()) {
             assertThat(ctx.isUsingRadix(), is(false));
             ctx.setUsingRadix(true);
             assertThat(ctx.isUsingRadix(), is(true));
