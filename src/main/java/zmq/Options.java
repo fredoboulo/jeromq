@@ -106,7 +106,7 @@ public class Options
     final List<IpcAddress.IpcAddressMask> ipcAcceptFilters = new ArrayList<>();
 
     //  Security mechanism for all connections on this socket
-    public Mechanisms mechanism = Mechanisms.NULL;
+    public Mechanisms mechanism;
 
     //  If peer is acting as server for PLAIN or CURVE mechanisms
     public boolean asServer;
@@ -247,8 +247,8 @@ public class Options
 
         case ZMQ.ZMQ_IDENTITY:
             byte[] val = parseBytes(option, optval);
-
-            if (val == null || val.length > 255) {
+            assert (val != null);
+            if (val.length > 255) {
                 throw new IllegalArgumentException("identity must not be null or less than 255 " + optval);
             }
             identity = Arrays.copyOf(val, val.length);
@@ -394,7 +394,8 @@ public class Options
 
         case ZMQ.ZMQ_ZAP_DOMAIN:
             String domain = parseString(option, optval);
-            if (domain != null && domain.length() < 256) {
+            assert (domain != null);
+            if (domain.length() < 256) {
                 zapDomain = domain;
                 return true;
             }
@@ -478,7 +479,7 @@ public class Options
             return true;
 
         case ZMQ.ZMQ_HEARTBEAT_CONTEXT:
-            heartbeatContext = (byte[]) optval;
+            heartbeatContext = copy((byte[]) optval);
             if (heartbeatContext == null) {
                 throw new IllegalArgumentException("heartbeatContext cannot be null");
             }
@@ -605,7 +606,7 @@ public class Options
             byte[] key = null;
             // if the optval is already the key don't do any parsing
             if (optval instanceof byte[] && ((byte[]) optval).length == CURVE_KEYSIZE) {
-                key = (byte[]) optval;
+                key = copy((byte[]) optval);
                 result.set(true);
                 errno.set(0);
             }
@@ -649,7 +650,7 @@ public class Options
             return affinity;
 
         case ZMQ.ZMQ_IDENTITY:
-            return identity;
+            return copy(identity);
 
         case ZMQ.ZMQ_RATE:
             return rate;
@@ -739,13 +740,13 @@ public class Options
             return asServer && mechanism == Mechanisms.CURVE;
 
         case ZMQ.ZMQ_CURVE_PUBLICKEY:
-            return curvePublicKey;
+            return copy(curvePublicKey);
 
         case ZMQ.ZMQ_CURVE_SERVERKEY:
-            return curveServerKey;
+            return copy(curveServerKey);
 
         case ZMQ.ZMQ_CURVE_SECRETKEY:
-            return curveSecretKey;
+            return copy(curveSecretKey);
 
         case ZMQ.ZMQ_CONFLATE:
             return conflate;
@@ -776,7 +777,7 @@ public class Options
             return heartbeatTtl * 100;
 
         case ZMQ.ZMQ_HEARTBEAT_CONTEXT:
-            return heartbeatContext;
+            return copy(heartbeatContext);
 
         case ZMQ.ZMQ_MSG_ALLOCATOR:
             return allocator;
@@ -794,6 +795,14 @@ public class Options
         default:
             throw new IllegalArgumentException("option=" + option);
         }
+    }
+
+    private byte[] copy(byte[] key)
+    {
+        if (key == null) {
+            return null;
+        }
+        return Arrays.copyOf(key, key.length);
     }
 
     public static boolean parseBoolean(int option, Object optval)
