@@ -68,9 +68,12 @@ public class LB
 
     public void activated(Pipe pipe)
     {
-        //  Move the pipe to the list of active pipes.
-        Collections.swap(pipes, pipes.indexOf(pipe), active);
-        active++;
+        int index = pipes.indexOf(pipe);
+        if (active < pipes.size()) {
+            //  Move the pipe to the list of active pipes.
+            Collections.swap(pipes, index, active);
+            active++;
+        }
     }
 
     public boolean sendpipe(Msg msg, Errno errno, ValueReference<Pipe> pipe)
@@ -93,7 +96,30 @@ public class LB
                 break;
             }
 
-            assert (!more);
+            // If send fails for multi-part msg rollback other
+            // parts sent earlier and return EAGAIN.
+            // Application should handle this as suitable
+            if (more) {
+                pipes.get(current).rollback();
+                // At this point the pipe is already being deallocated
+                // and the first N frames are unreachable (_outpipe is
+                // most likely already NULL so rollback won't actually do
+                // anything and they can't be un-written to deliver later).
+                // Return EFAULT to socket_base caller to drop current message
+                // and any other subsequent frames to avoid them being
+                // "stuck" and received when a new client reconnects, which
+                // would break atomicity of multi-part messages (in blocking mode
+                // socket_base just tries again and again to send the same message)
+                // Note that given dropping mode returns 0, the user will
+                // never know that the message could not be delivered, but
+                // can't really fix it without breaking backward compatibility.
+                // -2/EAGAIN will make sure socket_base caller does not re-enter
+                // immediately or after a short sleep in blocking mode.
+                dropping = msg.hasMore();
+                more = false;
+                errno.set(ZError.EAGAIN);
+                return false;
+            }
             active--;
             if (current < active) {
                 Collections.swap(pipes, current, active);

@@ -444,7 +444,8 @@ public class ZMsgTest
             fail();
         }
         catch (ZMQException e) {
-            assertThat(e.getErrorCode(), is(ZError.ETERM));
+            int errorCode = e.getErrorCode();
+            assertThat(errorCode == ZError.ETERM || errorCode == ZError.ESTOPPING, is(true));
         }
     }
 }

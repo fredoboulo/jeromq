@@ -508,7 +508,8 @@ public class TestZPoller
                         catch (InterruptedException ignored) {
                         }
                         catch (ZMQException exc) {
-                            assertThat(exc.getErrorCode(), is(ZError.ETERM));
+                            int errorCode = exc.getErrorCode();
+                            assertThat(errorCode == ZError.ETERM || errorCode == ZError.ESTOPPING, is(true));
                         }
                     }
                 }

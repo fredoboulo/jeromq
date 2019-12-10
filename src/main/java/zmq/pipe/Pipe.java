@@ -375,10 +375,10 @@ public class Pipe extends ZObject
     @Override
     protected void processPipeTermAck(State peerState)
     {
-//        assert (state == State.TERM_ACK_SENT || state == State.TERM_REQ_SENT_1
-//                || state == State.TERM_REQ_SENT_2) : state;
-//        assert (peerState == State.TERM_ACK_SENT || peerState == State.TERM_REQ_SENT_1
-//                || peerState == State.TERM_REQ_SENT_2) : peerState;
+        assert (state == State.TERM_ACK_SENT || state == State.TERM_REQ_SENT_1
+                || state == State.TERM_REQ_SENT_2) : state;
+        assert (peerState == State.TERM_ACK_SENT || peerState == State.TERM_REQ_SENT_1
+                || peerState == State.TERM_REQ_SENT_2) : peerState;
 
         //  Notify the user that all the references to the pipe should be dropped.
         assert (sink != null);
@@ -579,7 +579,7 @@ public class Pipe extends ZObject
                 // closed anyway. No need to do anything special here.
                 return;
             case PipeTermAck:
-//                assert (peerState == State.TERM_REQ_SENT_1 | peerState == State.TERM_REQ_SENT_2) : peerState;
+                assert (peerState == State.TERM_REQ_SENT_1 | peerState == State.TERM_REQ_SENT_2) : peerState;
                 // Simply deallocate the pipe.
                 closeInbound();
                 break;

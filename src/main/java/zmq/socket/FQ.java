@@ -77,9 +77,12 @@ public class FQ
 
     public void activated(Pipe pipe)
     {
-        //  Move the pipe to the list of active pipes.
-        Collections.swap(pipes, pipes.indexOf(pipe), active);
-        active++;
+        int index = pipes.indexOf(pipe);
+        if (active < pipes.size()) {
+            //  Move the pipe to the list of active pipes.
+            Collections.swap(pipes, index, active);
+            active++;
+        }
     }
 
     public Msg recv(Errno errno)

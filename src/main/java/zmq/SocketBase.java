@@ -967,7 +967,6 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         //  Process all the commands available at the moment.
         while (cmd != null) {
             if (stopping.get() && !reaper) {
-                assert (cmd.type == Command.Type.ACTIVATE_READ) : cmd;
                 // we processed the last command in the application thread.
                 // time to let the reaper do its job
                 errno.set(ZError.ESTOPPING); // Do not raise exception at the blocked operation

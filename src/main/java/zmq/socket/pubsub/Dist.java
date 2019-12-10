@@ -7,7 +7,7 @@ import java.util.List;
 import zmq.Msg;
 import zmq.pipe.Pipe;
 
-class Dist
+public class Dist
 {
     //  List of outbound pipes.
     //typedef array_t <zmq::pipe_t, 2> pipes_t;
@@ -109,12 +109,14 @@ class Dist
     public void activated(Pipe pipe)
     {
         //  Move the pipe from passive to eligible state.
-        Collections.swap(pipes, pipes.indexOf(pipe), eligible);
-        eligible++;
+        if (eligible < pipes.size()) {
+            Collections.swap(pipes, pipes.indexOf(pipe), eligible);
+            eligible++;
+        }
 
         //  If there's no message being sent at the moment, move it to
         //  the active state.
-        if (!more) {
+        if (!more && active < pipes.size()) {
             Collections.swap(pipes, eligible - 1, active);
             active++;
         }
@@ -136,7 +138,7 @@ class Dist
         //  Push the message to matching pipes.
         distribute(msg);
 
-        //  If mutlipart message is fully sent, activate all the eligible pipes.
+        //  If multipart message is fully sent, activate all the eligible pipes.
         if (!msgMore) {
             active = eligible;
         }
@@ -196,5 +198,15 @@ class Dist
             }
         }
         return true;
+    }
+
+    int active()
+    {
+        return active;
+    }
+
+    int eligible()
+    {
+        return eligible;
     }
 }

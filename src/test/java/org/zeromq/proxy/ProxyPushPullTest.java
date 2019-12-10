@@ -2,6 +2,7 @@ package org.zeromq.proxy;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
@@ -44,7 +45,7 @@ public class ProxyPushPullTest
     public void testStressProxyZMQUnit() throws Exception
     {
         int workers = 1;
-        int sleep = 5 * workers;
+        int sleep = 10 * workers;
         int loops = 5000;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
@@ -63,7 +64,7 @@ public class ProxyPushPullTest
     public void testStressProxyZMQ() throws Exception
     {
         int workers = 3;
-        int sleep = 5;
+        int sleep = 10;
         int loops = 5000;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
@@ -83,7 +84,7 @@ public class ProxyPushPullTest
     public void testStressProxyJeromq() throws Exception
     {
         int workers = 9;
-        int sleep = 5;
+        int sleep = 10;
         int loops = 2000;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
@@ -94,7 +95,6 @@ public class ProxyPushPullTest
             performTestJeromq(workers, sleep);
             long end = System.currentTimeMillis();
             System.out.printf(" performed in %3d millis.", (end - start));
-            System.out.println();
         }
         System.out.println();
     }
@@ -103,7 +103,7 @@ public class ProxyPushPullTest
     public void testStressProxyZeromq() throws Exception
     {
         int workers = 5;
-        int sleep = 5;
+        int sleep = 10;
         int loops = 5000;
         for (int i = 0; i < loops; i++) {
             if (i > 0) {
@@ -239,7 +239,7 @@ public class ProxyPushPullTest
                         if (msg == null) {
                             break;
                         }
-                        System.out.println(msg);
+                        System.out.println(Arrays.toString(msg));
                         LockSupport.parkNanos(TimeUnit.NANOSECONDS.convert(10, TimeUnit.MILLISECONDS));
                     }
                 }
@@ -332,7 +332,7 @@ public class ProxyPushPullTest
                     // and is not carefully closed
                     // expect a terminated exception
                     int errno = e.getErrorCode();
-                    assert (errno == ZError.ETERM);
+                    assert (errno == ZError.ETERM || errno == ZError.ESTOPPING);
                 }
                 catch (InterruptedException | BrokenBarrierException e) {
                     e.printStackTrace();
